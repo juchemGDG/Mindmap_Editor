@@ -1,0 +1,7 @@
+# Web-Version (Flask-Backend, optional – statisch bzw. mit PHP geht es auch ohne)
+flask>=3.0.0
+# Desktop-Version: natives Fenster um die Web-Oberfläche
+pywebview>=5.0
+# Linux braucht für pywebview ein Qt mit WebEngine (macOS/Windows nutzen das System)
+PySide6>=6.5; sys_platform == "linux"
+qtpy>=2.4; sys_platform == "linux"

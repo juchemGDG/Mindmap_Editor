@@ -1,0 +1,15 @@
+# Build-Artefakte der Paketierung (siehe packaging/README.md)
+.build-venv/
+build/
+dist/
+
+# Python-Cache
+__pycache__/
+
+# Sitzungen des gemeinsamen Bearbeitens (Flask bzw. PHP)
+web/collab-data/
+web/static/api/data/*
+!web/static/api/data/.htaccess
+web/static/api/config.php
+
+.DS_Store

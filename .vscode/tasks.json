@@ -1,0 +1,7 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "Start Mindmap Editor", "type": "shell", "command": "bash start_mindmap.sh", "problemMatcher": [] },
+    { "label": "Start Web-Version", "type": "shell", "command": "bash web/start_web.sh 5000", "problemMatcher": [] }
+  ]
+}

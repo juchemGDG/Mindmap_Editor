@@ -1,0 +1,31 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Mindmap-Editor-Logo: Zentralthema mit vier Ästen, im Stil der Schwester-
+       Apps (PAP-Editor, IBD-Editor). Quelle für alle Icon-Dateien, erzeugt mit:
+       python3 packaging/make_icons.py -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3B6FD8"/>
+      <stop offset="1" stop-color="#1E3A8A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- abgerundetes Quadrat mit Rand, wie bei macOS-App-Icons -->
+  <rect x="96" y="96" width="832" height="832" rx="186" fill="url(#bg)"/>
+
+  <g fill="none" stroke="#FFFFFF" stroke-width="30" stroke-linecap="round">
+    <!-- Äste -->
+    <path d="M420 512 C340 512 350 352 290 352"/>
+    <path d="M420 512 C340 512 350 672 290 672"/>
+    <path d="M604 512 C684 512 674 352 734 352"/>
+    <path d="M604 512 C684 512 674 672 734 672"/>
+  </g>
+  <g fill="#FFFFFF">
+    <!-- Zentralthema -->
+    <rect x="392" y="452" width="240" height="120" rx="60"/>
+    <!-- Enden der Äste -->
+    <rect x="186" y="322" width="120" height="60" rx="30"/>
+    <rect x="186" y="642" width="120" height="60" rx="30"/>
+    <rect x="718" y="322" width="120" height="60" rx="30"/>
+    <rect x="718" y="642" width="120" height="60" rx="30"/>
+  </g>
+</svg>

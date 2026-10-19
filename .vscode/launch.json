@@ -1,0 +1,7 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    { "name": "Mindmap Editor starten (Desktop)", "type": "debugpy", "request": "launch", "program": "${workspaceFolder}/mindmap_editor.py", "args": ["--debug"], "console": "integratedTerminal" },
+    { "name": "Web-Version (Flask)", "type": "debugpy", "request": "launch", "program": "${workspaceFolder}/web/app.py", "args": ["5000"], "console": "integratedTerminal" }
+  ]
+}

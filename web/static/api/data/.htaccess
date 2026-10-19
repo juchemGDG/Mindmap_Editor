@@ -1,0 +1,3 @@
+# Ablage der gemeinsamen Sitzungen – niemals direkt ausliefern
+Require all denied
+Deny from all

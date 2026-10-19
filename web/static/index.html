@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mindmap Editor</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <!-- Cache-Buster: bei jedem Deploy hochzählen (hier UND bei allen Skripten unten) -->
+  <link rel="stylesheet" href="mindmap.css?v=1">
+</head>
+<body data-view="map" data-phase="collect" data-theme="light">
+
+<div id="app">
+
+  <!-- ═══════ LINKE LEISTE ═══════ -->
+  <aside id="sidebar">
+    <div id="sidebar-header">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="10" y="12.5" width="12" height="7" rx="3.5" fill="currentColor"/><path d="M10 16 C6 16 6 8 2.5 8 M10 16 C6 16 6 24 2.5 24 M22 16 C26 16 26 8 29.5 8 M22 16 C26 16 26 24 29.5 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <div>
+        <span id="sidebar-title">Mindmap Editor</span>
+        <span id="sidebar-subtitle">Vom Brainstorming zum Plan</span>
+      </div>
+    </div>
+
+    <div class="side-scroll">
+      <section class="side-section capture">
+        <div class="section-label">IDEEN SAMMELN</div>
+        <div class="capture-box">
+          <textarea id="capture-input" rows="1" placeholder="Idee eintippen, Enter …" autocomplete="off"></textarea>
+          <button id="capture-add" title="Hinzufügen">↵</button>
+        </div>
+        <div class="capture-hint">wird eingefügt <span id="capture-target">als neuer Hauptast</span></div>
+
+        <div id="timer-box">
+          <span class="timer-label">Zeit</span>
+          <button data-timer="3">3′</button><button data-timer="5">5′</button><button data-timer="10">10′</button>
+          <span id="timer-display"></span>
+          <button id="timer-stop" title="Timer beenden">■</button>
+        </div>
+      </section>
+
+      <section class="side-section" id="vote-box" style="display:none">
+        <div class="section-label">PUNKTE VERGEBEN</div>
+        <p class="side-hint">Auf das blaue <b>＋</b> an einer Idee klicken (erscheint beim Zeigen oder Markieren). Alt-Klick nimmt einen Punkt zurück.</p>
+        <div class="vote-row"><span>Deine Punkte</span><span id="vote-dots"></span></div>
+        <div class="vote-row"><label for="vote-limit">Punkte pro Person</label><input type="number" id="vote-limit" min="1" max="20" value="3"></div>
+        <div class="side-buttons">
+          <button id="vote-sort">Nach Punkten sortieren</button>
+          <button id="vote-reset-mine">Meine zurücksetzen</button>
+          <button id="vote-reset-all">Alle löschen</button>
+        </div>
+      </section>
+
+      <section class="side-section">
+        <div class="section-label">DARSTELLUNG</div>
+        <label class="side-field"><span>Anordnung</span>
+          <select id="set-layout">
+            <option value="map">Mindmap (beidseitig)</option>
+            <option value="right">Logik (nach rechts)</option>
+            <option value="org">Strukturplan (PSP)</option>
+          </select></label>
+        <label class="side-field"><span>Linien</span>
+          <select id="set-lines">
+            <option value="curve">geschwungen</option>
+            <option value="straight">gerade</option>
+            <option value="elbow">eckig</option>
+          </select></label>
+        <label class="side-field"><span>Astfarben</span>
+          <select id="set-colors">
+            <option value="muted">dezent farbig</option>
+            <option value="neutral">grau</option>
+          </select></label>
+        <label class="side-field"><span>Design</span>
+          <select id="set-theme">
+            <option value="light">hell</option>
+            <option value="dark">dunkel</option>
+            <option value="print">schwarz-weiß</option>
+          </select></label>
+        <label class="side-check"><input type="checkbox" id="toggle-grid" checked> Punktraster</label>
+      </section>
+
+      <section class="side-section">
+        <div class="section-label">ANSICHT</div>
+        <div class="side-buttons">
+          <button id="btn-fit">Alles einpassen</button>
+          <button id="btn-level1">Nur Hauptäste</button>
+          <button id="btn-expand">Alles aufklappen</button>
+          <button id="btn-reset-pos">Positionen zurücksetzen</button>
+        </div>
+      </section>
+    </div>
+
+    <button id="btn-help-side" class="btn-help-side">Hilfe &amp; Bedienung</button>
+  </aside>
+  <div id="sidebar-overlay"></div>
+
+  <!-- ═══════ HAUPTBEREICH ═══════ -->
+  <main id="main">
+    <div id="topbar">
+      <div id="topline">
+        <button id="sidebar-toggle" title="Seitenleiste">☰</button>
+        <input id="map-title" type="text" placeholder="Titel" title="Titel der Mindmap (leer = wie das Zentralthema), wird als Dateiname verwendet" spellcheck="false" autocomplete="off">
+
+        <nav id="phase-switch" aria-label="Phase">
+          <button data-phase="collect" title="Ideen schnell festhalten – ohne Bewertung"><b>1</b>Sammeln</button>
+          <i>›</i>
+          <button data-phase="order" title="Gruppieren, verdichten, Punkte vergeben"><b>2</b>Ordnen</button>
+          <i>›</i>
+          <button data-phase="plan" title="Aufgaben, Zuständige und Termine festlegen"><b>3</b>Planen</button>
+        </nav>
+
+        <nav id="view-tabs" aria-label="Ansicht">
+          <button data-view-tab="map" title="Mindmap">Mindmap</button>
+          <button data-view-tab="outline" title="Gliederung als Liste">Gliederung</button>
+          <button data-view-tab="kanban" title="Aufgaben nach Status">Kanban</button>
+          <button data-view-tab="timeline" title="Termine und Gantt-Diagramm">Zeitplan</button>
+        </nav>
+
+        <span id="timer-chip" class="timer-chip" style="display:none"></span>
+        <span id="peers"></span>
+        <span id="conn-state" class="conn"></span>
+        <span id="status">Bereit</span>
+        <button id="btn-inspector" class="icon-toggle" title="Eigenschaften ein-/ausblenden (Strg/⌘+I)"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12.5 3.5v13" stroke="currentColor" stroke-width="1.5"/><path d="M14.3 7h1.4M14.3 9.6h1.4M14.3 12.2h1.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>
+        <button id="menu-toggle" title="Menü">⋮</button>
+      </div>
+
+      <nav id="menubar">
+        <button id="btn-new" class="btn-menu">Neu</button>
+        <button id="btn-open" class="btn-menu">Öffnen</button>
+        <button id="btn-save" class="btn-menu">Speichern</button>
+        <button id="btn-export" class="btn-menu" title="Bilder, Text, Aufgabenlisten, Kalender – und Importieren">Import/Export ▾</button>
+        <span class="menu-sep"></span>
+        <button id="btn-undo" class="btn-menu btn-icon" title="Rückgängig (Strg/⌘+Z)">↶</button>
+        <button id="btn-redo" class="btn-menu btn-icon" title="Wiederholen (Strg/⌘+Y)">↷</button>
+        <span class="menu-sep"></span>
+        <button id="btn-check" class="btn-menu">Prüfen <span id="check-badge" class="badge" style="display:none"></span></button>
+        <button id="btn-plan" class="btn-menu btn-accent" title="Ideen in Aufgaben umwandeln">Zum Plan machen</button>
+        <button id="btn-present" class="btn-menu">Präsentieren</button>
+        <button id="btn-share" class="btn-menu"><span id="btn-share-label">Gemeinsam</span></button>
+        <button id="btn-desktop" class="btn-menu">Desktop-Version</button>
+      </nav>
+    </div>
+
+    <div id="workspace">
+      <div id="views">
+        <div id="canvas-container">
+          <canvas id="main-canvas"></canvas>
+
+          <div id="node-actions" style="display:none">
+            <span class="na-label"></span>
+            <button data-act="child" title="Unterpunkt (Tab)">＋ Unterpunkt</button>
+            <button data-act="sibling" title="Nachbar (Enter)">＋ Nachbar</button>
+            <button data-act="edit" title="Text ändern (F2 oder Doppelklick)">✎ Text</button>
+            <button data-act="task" title="Aufgabe / Status weiterschalten (Strg/⌘+Enter)">☐ Aufgabe</button>
+            <button data-act="more" title="Weitere Befehle (Rechtsklick)">⋯</button>
+          </div>
+
+          <div id="focus-bar" style="display:none"><span></span><button id="focus-exit">Ganze Mindmap</button></div>
+
+          <div id="search-bar" style="display:none">
+            <input id="search-input" type="search" placeholder="Suchen …" autocomplete="off">
+            <span id="search-info"></span>
+            <button id="search-close" title="Schließen">✕</button>
+          </div>
+
+          <div id="live-banner" style="display:none"><span></span><button id="live-follow">Zuschauen</button><button id="live-dismiss" title="Ausblenden">✕</button></div>
+
+          <div id="zoom-controls">
+            <button id="zoom-out" title="Verkleinern">−</button>
+            <span id="zoom-label">100 %</span>
+            <button id="zoom-in" title="Vergrößern">+</button>
+            <button id="zoom-fit" title="Alles einpassen (Strg/⌘+0)">⤢</button>
+          </div>
+        </div>
+        <div id="outline-view" class="view-page" style="display:none"></div>
+        <div id="kanban-view" class="view-page" style="display:none"></div>
+        <div id="timeline-view" class="view-page" style="display:none"></div>
+      </div>
+
+      <aside id="check-panel" style="display:none">
+        <div class="panel-head"><b>Hinweise</b><button id="check-close" title="Schließen">✕</button></div>
+        <div id="check-list"></div>
+      </aside>
+
+      <aside id="inspector">
+        <div class="panel-head"><b>Eigenschaften</b><button id="inspector-close" title="Ausblenden">✕</button></div>
+        <div id="inspector-body"></div>
+      </aside>
+    </div>
+  </main>
+</div>
+
+<div id="note-tip"></div>
+
+<!-- ═══════ HINWEIS ═══════ -->
+<div id="modal" class="modal">
+  <div class="modal-box">
+    <h2 id="modal-title"></h2>
+    <pre id="modal-body"></pre>
+    <div class="modal-buttons"><button id="modal-close" class="btn-primary">OK</button></div>
+  </div>
+</div>
+
+<!-- ═══════ EINGABE ═══════ -->
+<div id="prompt-modal" class="modal">
+  <div class="modal-box">
+    <h2 id="prompt-title"></h2>
+    <label id="prompt-label" for="prompt-input"></label>
+    <input type="text" id="prompt-input" autocomplete="off">
+    <textarea id="prompt-textarea" rows="3" autocomplete="off"></textarea>
+    <div id="prompt-hint"></div>
+    <div class="modal-buttons">
+      <button id="prompt-cancel" class="btn-secondary">Abbrechen</button>
+      <button id="prompt-ok" class="btn-primary">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ NEU / VORLAGEN ═══════ -->
+<div id="template-modal" class="modal">
+  <div class="modal-box wide">
+    <div class="modal-head"><h2>Neue Mindmap</h2><button id="template-close" class="x" title="Schließen">✕</button></div>
+    <div id="template-list"></div>
+  </div>
+</div>
+
+<!-- ═══════ ZUM PLAN MACHEN ═══════ -->
+<div id="plan-modal" class="modal">
+  <div class="modal-box wide">
+    <h2>Zum Plan machen</h2>
+    <p class="modal-intro">Aus Ideen werden Aufgaben. Danach legst du Zuständige und Termine fest – im Kanban, im Zeitplan oder rechts im Eigenschaften-Feld.</p>
+    <div class="plan-grid">
+      <fieldset>
+        <legend>Welcher Teil?</legend>
+        <label><input type="radio" name="plan-scope" value="all" checked> die ganze Mindmap</label>
+        <label><input type="radio" name="plan-scope" value="branch"> <span id="plan-scope-branch-label">nur den markierten Ast</span></label>
+      </fieldset>
+      <fieldset>
+        <legend>Was wird zur Aufgabe?</legend>
+        <label><input type="radio" name="plan-what" value="leaves" checked> alle Endpunkte (die konkretesten Ideen)</label>
+        <label><input type="radio" name="plan-what" value="level2"> alle Unterpunkte (ab der 2. Ebene)</label>
+        <label><input type="radio" name="plan-what" value="voted"> <span id="plan-what-voted-label">nur Ideen mit Punkten oder Priorität</span></label>
+        <label class="check"><input type="checkbox" id="plan-prio" checked> Punkte in Prioritäten umwandeln</label>
+      </fieldset>
+      <fieldset>
+        <legend>Wie genau planen?</legend>
+        <label><input type="radio" name="plan-mode" value="simple" checked> <span><b>einfach</b> – Status, Zuständige, Fälligkeit</span></label>
+        <label><input type="radio" name="plan-mode" value="project"> <span><b>als Projekt</b> – Start/Ende, Dauer, Abhängigkeiten, Gantt</span></label>
+        <div id="plan-project-opts" class="plan-sub">
+          <label>Projektstart <input type="date" id="plan-start"></label>
+          <label>Dauer je Aufgabe <input type="number" id="plan-dur" min="1" max="60" value="2"> Tage</label>
+          <label class="check"><input type="checkbox" id="plan-seq" checked> Aufgaben eines Astes nacheinander</label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Danach öffnen</legend>
+        <label><input type="radio" name="plan-open" value="kanban" checked> Kanban</label>
+        <label><input type="radio" name="plan-open" value="timeline"> Zeitplan</label>
+        <label><input type="radio" name="plan-open" value="map"> Strukturplan (PSP)</label>
+      </fieldset>
+    </div>
+    <p id="plan-count" class="plan-count"></p>
+    <div class="modal-buttons">
+      <button id="plan-cancel" class="btn-secondary">Abbrechen</button>
+      <button id="plan-ok" class="btn-primary">Aufgaben anlegen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ GEMEINSAM BEARBEITEN ═══════ -->
+<div id="share-modal" class="modal">
+  <div class="modal-box wide">
+    <div class="modal-head"><h2>Gemeinsam bearbeiten</h2><button id="share-close" class="x" title="Schließen">✕</button></div>
+    <div id="share-intro">
+      <p class="modal-intro">Alle, die den Link öffnen, arbeiten gleichzeitig an dieser Mindmap – im Browser, ohne Anmeldung. Ideal zum Brainstormen in der Klasse.</p>
+      <ul class="share-points">
+        <li>Es gibt einen Link zum <b>Bearbeiten</b> und einen zum <b>Ansehen</b> (z. B. für den Beamer).</li>
+        <li>Die Mindmap wird dafür auf diesem Server gespeichert und nach 60 Tagen ohne Nutzung gelöscht.</li>
+        <li>Bitte keine persönlichen Daten eintragen. Als Name genügt ein Vorname oder Kürzel.</li>
+      </ul>
+      <div class="modal-buttons"><button id="share-start" class="btn-primary">Sitzung starten</button></div>
+    </div>
+    <div id="share-active" style="display:none">
+      <div class="share-links">
+        <div class="share-link" id="share-edit-row">
+          <h3>Zum Mitmachen</h3>
+          <div class="qr" id="share-edit-qr"></div>
+          <div class="share-url"><input id="share-edit-url" readonly><button id="share-copy-edit" class="btn-small">Kopieren</button></div>
+          <button id="share-big-edit" class="btn-link">QR-Code groß zeigen</button>
+        </div>
+        <div class="share-link">
+          <h3>Nur ansehen</h3>
+          <div class="qr" id="share-view-qr"></div>
+          <div class="share-url"><input id="share-view-url" readonly><button id="share-copy-view" class="btn-small">Kopieren</button></div>
+          <button id="share-big-view" class="btn-link">QR-Code groß zeigen</button>
+        </div>
+      </div>
+      <h3 class="share-sub">Dabei</h3>
+      <ul id="share-peers"></ul>
+      <div class="modal-buttons">
+        <button id="share-rename" class="btn-secondary">Meinen Namen ändern</button>
+        <button id="share-leave" class="btn-secondary danger">Sitzung verlassen</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="qr-big" class="modal"><div class="qr-big-box"><div id="qr-big-code"></div><div id="qr-big-url"></div><p>Klicken zum Schließen</p></div></div>
+
+<!-- ═══════ PRÄSENTATION ═══════ -->
+<div id="present" style="display:none">
+  <div class="present-stage"><canvas id="present-canvas"></canvas></div>
+  <div id="present-caption" style="display:none"></div>
+  <div class="present-bar">
+    <button id="present-prev" title="Zurück (←)">‹</button>
+    <span id="present-count">1 / 1</span>
+    <button id="present-next" title="Weiter (→, Leertaste)">›</button>
+    <select id="present-mode" title="Schritte">
+      <option value="branch">Ast für Ast</option>
+      <option value="node">Punkt für Punkt</option>
+    </select>
+    <label class="present-check"><input type="checkbox" id="present-notes" checked> Notizen</label>
+    <label class="present-check" id="present-live-wrap"><input type="checkbox" id="present-live"> Live für alle</label>
+    <span id="present-follow-note" style="display:none">Du schaust zu</span>
+    <button id="present-full" title="Vollbild (F)">⛶</button>
+    <button id="present-close" title="Beenden (Esc)">✕</button>
+  </div>
+</div>
+
+<!-- ═══════ HILFE ═══════ -->
+<div id="help-modal" class="modal">
+  <div id="help-box" role="dialog" aria-labelledby="help-title">
+    <div id="help-head">
+      <h2 id="help-title">Hilfe &amp; Bedienung</h2>
+      <button id="help-close" title="Schließen (Esc)">✕</button>
+    </div>
+    <div id="help-body">
+      <section>
+        <h3>Der Weg: Sammeln › Ordnen › Planen</h3>
+        <ul>
+          <li><b>1 Sammeln:</b> Ideen ungefiltert festhalten – links ins Feld „Ideen sammeln“ tippen und <kbd>Enter</kbd>, oder direkt in der Mindmap. Der Timer hilft beim Brainstorming.</li>
+          <li><b>2 Ordnen:</b> Ähnliches gruppieren (markieren, <kbd>Strg/⌘</kbd>+<kbd>G</kbd>), Äste verschieben, Querverbindungen ziehen, <b>Punkte vergeben</b> (blaues ＋ an der Ecke einer Idee; Alt-Klick nimmt zurück). „Prüfen“ gibt Tipps zur Struktur.</li>
+          <li><b>3 Planen:</b> „<b>Zum Plan machen</b>“ wandelt Ideen in Aufgaben um. Danach Zuständige, Termine und Status im Kanban, im Zeitplan oder rechts im Eigenschaften-Feld festlegen.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Schnell schreiben</h3>
+        <ul>
+          <li>Punkt markieren und <b>einfach lostippen</b> – der Text wird ersetzt. <kbd>F2</kbd> oder Doppelklick ändert den Text.</li>
+          <li><kbd>Tab</kbd> neuer Unterpunkt · <kbd>Enter</kbd> neuer Nachbar. Bei einem neuen Punkt legt <kbd>Enter</kbd> gleich den nächsten an – so schreibt man eine ganze Liste am Stück. <kbd>Esc</kbd> beendet.</li>
+          <li>Zeilenumbruch im Punkt: <kbd>Shift</kbd>+<kbd>Enter</kbd>.</li>
+          <li>Pfeiltasten wandern durch die Mindmap, <kbd>Strg/⌘</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> verschiebt einen Punkt, <kbd>Shift</kbd>+<kbd>Tab</kbd> holt ihn eine Ebene höher.</li>
+          <li><kbd>Leertaste</kbd> klappt einen Ast ein/aus. <kbd>Strg/⌘</kbd>+<kbd>E</kbd> zeigt nur den markierten Ast (Fokus).</li>
+          <li>Eine ganze Liste einfügen (<kbd>Strg/⌘</kbd>+<kbd>V</kbd>): jede Zeile wird ein Punkt, eingerückte Zeilen werden Unterpunkte.</li>
+          <li>Doppelklick auf eine freie Stelle legt einen neuen Hauptast an.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Ordnen und gestalten</h3>
+        <ul>
+          <li><b>Ziehen</b> auf einen anderen Punkt hängt den Ast dort an. Am oberen/unteren Rand loslassen setzt ihn davor/dahinter. Auf freier Fläche loslassen verschiebt ihn frei (ein Hauptast wechselt dabei ggf. die Seite).</li>
+          <li><b>Mehrere markieren:</b> <kbd>Shift</kbd>-Klick oder mit <kbd>Shift</kbd> einen Rahmen ziehen. Fläche verschieben: auf freier Fläche ziehen, Mausrad oder zwei Finger. Zoomen: <kbd>Strg/⌘</kbd>+Mausrad oder zwei Finger spreizen.</li>
+          <li><b>Rechtsklick</b> (iPad: lange tippen) öffnet alle Befehle: Status, Priorität, Farbe, Rahmen, Querverbindung, Sortieren …</li>
+          <li><b>Querverbindung:</b> Rechtsklick › „Querverbindung zu …“, dann den Ziel-Punkt anklicken. Doppelklick auf die Linie beschriftet sie.</li>
+          <li>Rechts im <b>Eigenschaften</b>-Feld: Notiz, Link, Symbol, Farbe, Schriftgröße (A−/A+), Form, Rahmen und Bild – bei mehreren markierten Punkten für alle zugleich.</li>
+          <li>Links unter „Darstellung“: Mindmap, Logik-Diagramm oder <b>Strukturplan (PSP)</b>, Linienart, Astfarben, helles/dunkles Design.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Aufgaben und Plan</h3>
+        <ul>
+          <li><kbd>Strg/⌘</kbd>+<kbd>Enter</kbd> macht einen Punkt zur Aufgabe bzw. schaltet den Status weiter (offen › in Arbeit › erledigt). <kbd>Strg/⌘</kbd>+<kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> setzt die Priorität.</li>
+          <li><b>Einfach</b> planen: Status, Zuständige, Fälligkeit. <b>Als Projekt</b>: zusätzlich Start und Ende, Dauer, Meilensteine und Abhängigkeiten – mit Gantt-Diagramm im Zeitplan.</li>
+          <li><b>Gliederung:</b> dieselbe Mindmap als Liste – wie in einem Textprogramm schreiben.</li>
+          <li><b>Kanban:</b> Karten zwischen „Ideen“, „Offen“, „In Arbeit“ und „Erledigt“ ziehen.</li>
+          <li><b>Zeitplan:</b> Aufgaben nach Fälligkeit; im Projektmodus Balken ziehen bzw. an den Rändern verlängern. „Automatisch planen“ vergibt fehlende Termine und hält Abhängigkeiten ein.</li>
+          <li>Übergeordnete Punkte zeigen den Fortschritt ihrer Aufgaben an (z. B. 3/5).</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Präsentieren und gemeinsam arbeiten</h3>
+        <ul>
+          <li><b>Präsentieren</b> baut die Mindmap Ast für Ast (oder Punkt für Punkt) auf. Weiter mit <kbd>→</kbd>, <kbd>Leertaste</kbd> oder Klick, zurück mit <kbd>←</kbd>, Vollbild mit <kbd>F</kbd>, Ende mit <kbd>Esc</kbd>. Notizen erscheinen als Bildunterschrift.</li>
+          <li><b>Gemeinsam</b> startet eine Sitzung mit Link und QR-Code (Bearbeiten bzw. nur Ansehen). Alle sehen Änderungen sofort, farbige Rahmen zeigen, wer gerade wo arbeitet. Beim Präsentieren kann man „Live für alle“ einschalten.</li>
+          <li>Der Timer läuft in einer gemeinsamen Sitzung bei allen mit.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Speichern und Austausch</h3>
+        <ul>
+          <li><b>Speichern</b>/<b>Öffnen</b> als JSON-Datei – kompatibel mit der Desktop-Version. Der Browser merkt sich außerdem den letzten Stand.</li>
+          <li><b>Export:</b> PNG, JPG, SVG, Drucken/PDF, Gliederung als Markdown, OPML, Aufgabenliste (Markdown, CSV) und Termine als Kalenderdatei (ICS).</li>
+          <li><b>Öffnen/Importieren</b> versteht auch Markdown- und Textlisten, OPML und FreeMind-Dateien (.mm). „Importieren“ fügt den Inhalt unter dem markierten Punkt ein.</li>
+          <li><b>Prüfen</b> gibt Hinweise zur Struktur (ab „Ordnen“) und zum Plan (in „Planen“). Einzelne Regeln lassen sich ausblenden.</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ DESKTOP-VERSION ═══════ -->
+<div id="download-modal" class="modal">
+  <div class="modal-box">
+    <h2>Mindmap Editor für den Desktop</h2>
+    <p class="modal-intro">Die Desktop-Version läuft ohne Browser und speichert Mindmaps direkt auf dem Rechner. Funktionsumfang wie die Web-Version (ohne gemeinsames Bearbeiten).</p>
+    <div id="download-version"></div>
+    <div id="download-list"></div>
+    <p class="modal-note">Die Pakete kommen vom neuesten Release auf GitHub. macOS: Beim ersten Start Rechtsklick auf die App › „Öffnen“, da die App nicht bei Apple notarisiert ist.</p>
+    <div class="modal-buttons"><button id="download-close" class="btn-primary">Schließen</button></div>
+  </div>
+</div>
+
+<div id="print-area"></div>
+
+<script src="vendor/qrcode.js?v=1"></script>
+<script src="js/mm-core.js?v=1"></script>
+<script src="js/mm-layout.js?v=1"></script>
+<script src="js/mm-map.js?v=1"></script>
+<script src="js/mm-inspector.js?v=1"></script>
+<script src="js/mm-views.js?v=1"></script>
+<script src="js/mm-check.js?v=1"></script>
+<script src="js/mm-io.js?v=1"></script>
+<script src="js/mm-collab.js?v=1"></script>
+<script src="js/mm-present.js?v=1"></script>
+<script src="js/mm-app.js?v=1"></script>
+</body>
+</html>

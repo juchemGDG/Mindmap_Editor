@@ -1,0 +1,26 @@
+# ─────────────────────────────────────────────────────────────────────
+# Wichtig für das Deployment des Mindmap Editors (wie beim PAP-Editor)
+#
+# index.html darf NICHT im Browser-Cache liegen bleiben: lädt der Browser
+# eine alte index.html und dazu neue Skripte, passen HTML und Skript nicht
+# mehr zusammen. Die Skripte und mindmap.css haben einen Cache-Buster (?v=N)
+# und dürfen gecacht werden.
+#
+# Achtung: Diese Datei beginnt mit einem Punkt und wird von vielen FTP-
+# Programmen ausgeblendet – beim Hochladen "versteckte Dateien anzeigen".
+#
+# nginx (z. B. Plesk ohne Apache) beachtet .htaccess nicht. Dann in Plesk
+# unter "Apache & nginx Einstellungen" bei den nginx-Direktiven eintragen:
+#
+#   location = /index.html { add_header Cache-Control "no-cache, must-revalidate"; }
+#   location = /           { add_header Cache-Control "no-cache, must-revalidate"; }
+#   location ^~ /api/data/ { deny all; }
+# ─────────────────────────────────────────────────────────────────────
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
+AddDefaultCharset UTF-8
