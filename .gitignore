@@ -13,3 +13,10 @@ web/static/api/data/*
 web/static/api/config.php
 
 .DS_Store
+
+# Tests (Playwright, Node)
+node_modules/
+test-results/
+playwright-report/
+.test-data/
+.venv-test/

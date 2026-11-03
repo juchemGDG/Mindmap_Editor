@@ -1,0 +1,12 @@
+{
+  "name": "mindmap-editor-tests",
+  "private": true,
+  "description": "Nur für die Browsertests. Die App selbst braucht keinen Build-Schritt und kein npm.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}
