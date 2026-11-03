@@ -9,6 +9,13 @@
 //   doc.nodes[id]     Knoten   {id, parent, order, text, …}
 //   doc.links[id]     Querverbindungen {id, from, to, label}
 //   doc.votes[id]     Punkte (Dot-Voting) {id, node, voter, n}
+//   doc.columns[id]   Kanban-Spalten (Prozess-Modus) {id, order, title, statusKey, …}
+//   doc.members[id]   Mitglieder (Kürzel) {id, name, color}
+//   doc.events[id]    Protokoll (nur anhängen) {id, t, who, type, task, …}
+//
+// Jede Sammlung ist ein Objekt "ID → Eintrag" und KEINE Liste. Darum gehen
+// beim gemeinsamen Bearbeiten keine Einträge verloren: zwei Personen legen
+// verschiedene IDs an statt sich gegenseitig eine Liste zu überschreiben.
 //
 // JEDE Änderung läuft über mutate(). mutate() vergleicht den Stand vorher
 // und nachher und erzeugt daraus Operationen auf Feldebene:
@@ -23,8 +30,10 @@
 
 const APP_NAME       = 'Mindmap Editor';
 const FORMAT         = 'mindmap-editor';
-const FORMAT_VERSION = 1;
-const COLLECTIONS    = ['meta', 'nodes', 'links', 'votes'];
+// Schema-Version der Datei: 1 = Version 1.0.0, 2 = mit Kanban-Prozess (Spalten, Mitglieder, Protokoll).
+// Dateien mit Version 1 brauchen keine Umwandlung – die neuen Sammlungen sind dann einfach leer.
+const FORMAT_VERSION = 2;
+const COLLECTIONS    = ['meta', 'nodes', 'links', 'votes', 'columns', 'members', 'events'];
 
 const PHASES = [
   { key: 'collect', label: 'Sammeln', hint: 'Ideen schnell festhalten – ohne Bewertung' },
@@ -76,7 +85,7 @@ function defaultMeta() {
 
 function emptyDoc(rootText) {
   const root = { id: 'root', parent: null, order: 0, text: rootText || 'Zentralthema' };
-  return { meta: { m: defaultMeta() }, nodes: { root }, links: {}, votes: {} };
+  return { meta: { m: defaultMeta() }, nodes: { root }, links: {}, votes: {}, columns: {}, members: {}, events: {} };
 }
 
 function rootId() {
@@ -187,6 +196,22 @@ function orderAt(parent, pos) {
 function isTask(id) { const n = doc.nodes[id]; return !!(n && n.task); }
 function statusOf(id) { const n = doc.nodes[id]; return (n && n.status) || 'todo'; }
 
+/**
+ * Zuständige eines Knotens als Liste. Mehrere Personen stehen durch Komma getrennt
+ * im bisherigen Feld `owner` ("AB, CD") – so lesen auch ältere Versionen die Datei.
+ */
+function ownersOf(id) {
+  const n = typeof id === 'string' ? doc.nodes[id] : id;
+  if (!n || !n.owner) return [];
+  return String(n.owner).split(',').map(s => s.trim()).filter(Boolean);
+}
+function setOwners(n, list) {
+  const clean = [...new Set(list.map(s => String(s).replace(/,/g, ' ').trim()).filter(Boolean))];
+  if (clean.length) n.owner = clean.join(', '); else delete n.owner;
+}
+/** Kürzel aller Zuständigen, z. B. "AB·CD". */
+function ownerInitials(n) { return ownersOf(n).map(initials).join('·'); }
+
 /** Fortschritt eines Knotens: erledigte/alle Aufgaben darunter (inkl. selbst). */
 function progressOf(id) {
   let all = 0, done = 0;
@@ -292,8 +317,26 @@ const opListeners = [];       // z. B. das gemeinsame Bearbeiten
 let readOnly = false;         // "Nur ansehen"-Link
 let suppressOps = false;
 
+const commitHooks = [];       // laufen nach jeder eigenen Änderung, noch im selben Schritt
+
 function onChange(fn) { changeListeners.push(fn); }
 function onLocalOps(fn) { opListeners.push(fn); }
+
+/**
+ * Commit-Haken: fn(before, info) darf `doc` noch ergänzen, bevor verglichen wird.
+ * So hängen sich der Kanban-Abgleich (Spalte ↔ Status) und das Protokoll an
+ * JEDE Änderung – egal ob sie aus dem Kanban, dem Eigenschaften-Feld, dem Gantt
+ * oder der Gliederung kommt. Die Oberfläche muss daran nicht denken.
+ */
+function onCommit(fn) { commitHooks.push(fn); }
+function runCommitHooks(before, info) {
+  for (const fn of commitHooks) fn(before, info);
+  invalidate();
+}
+
+// Das Protokoll ist nur anhängbar: Rückgängig darf keine Einträge entfernen.
+// Deshalb werden Operationen auf `events` aus den Rückgängig-Schritten herausgehalten.
+const notEvent = op => op.c !== 'events';
 
 /**
  * Das Dokument ändern. fn() verändert `doc` direkt; danach wird verglichen.
@@ -302,12 +345,13 @@ function onLocalOps(fn) { opListeners.push(fn); }
 function mutate(labelText, fn, opts) {
   if (readOnly) { flashStatus('Nur ansehen – Änderungen sind hier nicht möglich'); return false; }
   const before = clone(doc);
-  try { fn(); }
+  try { fn(); invalidate(); runCommitHooks(before, { label: labelText, opts: opts || {} }); }
   catch (err) { doc = before; invalidate(); console.error(err); flashStatus('Fehler: ' + err.message); return false; }
   invalidate();
-  const { fwd, inv } = diffDocs(before, doc);
-  if (!fwd.length) return false;
-  if (!opts || !opts.noUndo) {
+  const all = diffDocs(before, doc);
+  if (!all.fwd.length) return false;
+  const fwd = all.fwd.filter(notEvent), inv = all.inv.filter(notEvent);
+  if (fwd.length && (!opts || !opts.noUndo)) {
     const last = undoStack[undoStack.length - 1];
     // gleiche Feldänderung kurz hintereinander zusammenfassen (z. B. Tippen im Inspektor)
     if (opts && opts.merge && last && last.merge === opts.merge && Date.now() - last.t < 1500) {
@@ -321,7 +365,7 @@ function mutate(labelText, fn, opts) {
     }
     redoStack = [];
   }
-  emitLocal(fwd);
+  emitLocal(all.fwd);
   notifyChange({ local: true, label: labelText });
   return true;
 }
@@ -349,10 +393,15 @@ function notifyChange(info) {
   }
 }
 
+/** Rückgängig/Wiederholen: Operationen anwenden; die Commit-Haken protokollieren das als NEUE Einträge. */
 function applyLocal(ops, labelText) {
+  const before = clone(doc);
   for (const op of ops) applyOp(doc, op);
   invalidate();
-  emitLocal(ops);
+  const mid = clone(doc);
+  try { runCommitHooks(before, { label: labelText, opts: {}, undo: true }); } catch (err) { console.error(err); }
+  const extra = diffDocs(mid, doc).fwd;
+  emitLocal(ops.concat(extra));
   notifyChange({ local: true, label: labelText });
 }
 
@@ -362,6 +411,7 @@ function undo() {
   if (!e) { flashStatus('Nichts rückgängig zu machen'); return; }
   applyLocal(e.inv, 'Rückgängig');
   redoStack.push(e);
+  if (typeof updateUndoButtons === 'function') updateUndoButtons();   // erst jetzt ist „Wiederholen“ möglich
   flashStatus('Rückgängig: ' + e.label);
 }
 function redo() {
@@ -370,6 +420,7 @@ function redo() {
   if (!e) { flashStatus('Nichts zu wiederholen'); return; }
   applyLocal(e.fwd, 'Wiederholen');
   undoStack.push(e);
+  if (typeof updateUndoButtons === 'function') updateUndoButtons();
   flashStatus('Wiederholt: ' + e.label);
 }
 
@@ -411,19 +462,62 @@ function normalizeDoc(d) {
       for (const r of roots) if (r !== keep) out.nodes[r].parent = keep;
     }
   }
-  for (const c of ['links', 'votes']) {
+  for (const c of COLLECTIONS.filter(c => c !== 'meta' && c !== 'nodes')) {
     out[c] = {};
-    if (src[c] && typeof src[c] === 'object') {
+    if (src[c] && typeof src[c] === 'object' && !Array.isArray(src[c])) {
       for (const id in src[c]) if (src[c][id] && typeof src[c][id] === 'object') out[c][id] = Object.assign({}, src[c][id], { id });
     }
   }
+  for (const id in out.columns) {
+    const col = out.columns[id];
+    if (!['idea', 'todo', 'doing', 'done'].includes(col.statusKey)) col.statusKey = 'todo';
+    if (typeof col.order !== 'number') col.order = 0;
+    col.title = String(col.title == null ? '' : col.title);
+  }
+  // Sammlungen, die diese Version nicht kennt (aus einer neueren Version), nicht wegwerfen
+  for (const c in src) {
+    if (!COLLECTIONS.includes(c) && !(c in out) && src[c] && typeof src[c] === 'object') out[c] = clone(src[c]);
+  }
   return out;
+}
+
+/**
+ * Datei vor dem Öffnen prüfen. Gibt eine Liste verständlicher Meldungen zurück;
+ * `fatal` = die Datei kann nicht geöffnet werden.
+ */
+function validateFile(p) {
+  const errors = [], warnings = [];
+  const src = p && p.doc && typeof p.doc === 'object' ? p.doc : p;
+  if (!src || typeof src !== 'object') return { fatal: true, errors: ['Die Datei enthält keine Mindmap.'], warnings };
+  if (!src.nodes || typeof src.nodes !== 'object' || Array.isArray(src.nodes)) errors.push('Der Datei fehlen die Punkte der Mindmap („nodes“).');
+  if (p && typeof p.version === 'number' && p.version > FORMAT_VERSION) {
+    warnings.push(`Die Datei stammt aus einer neueren Version des Mindmap Editors (Format ${p.version}). Unbekannte Teile bleiben erhalten, werden aber nicht angezeigt.`);
+  }
+  for (const c of ['columns', 'members', 'events']) {
+    if (src[c] != null && (typeof src[c] !== 'object' || Array.isArray(src[c]))) warnings.push(`Der Teil „${c}“ hat ein falsches Format und wird ignoriert.`);
+  }
+  const STATUS_KEYS = ['idea', 'todo', 'doing', 'done'];
+  if (src.columns && typeof src.columns === 'object') {
+    for (const id in src.columns) {
+      const col = src.columns[id];
+      if (!col || typeof col !== 'object') { warnings.push(`Eine Kanban-Spalte (${id}) ist beschädigt und wird ignoriert.`); continue; }
+      if (!STATUS_KEYS.includes(col.statusKey)) warnings.push(`Die Spalte „${col.title || id}“ hat keine gültige Status-Kategorie – sie wird als „Offen“ behandelt.`);
+    }
+  }
+  if (src.nodes && typeof src.nodes === 'object') {
+    for (const id in src.nodes) {
+      const n = src.nodes[id];
+      if (n && n.status && !['todo', 'doing', 'done'].includes(n.status)) warnings.push(`Der Punkt „${String(n.text || id).slice(0, 40)}“ hat einen unbekannten Status („${n.status}“) – er wird als „Offen“ angezeigt.`);
+    }
+  }
+  return { fatal: errors.length > 0, errors, warnings };
 }
 
 function docPayload() {
   return {
     format: FORMAT,
     version: FORMAT_VERSION,
+    schemaVersion: FORMAT_VERSION,
     app: APP_NAME,
     savedAt: new Date().toISOString(),
     doc: clone(doc),

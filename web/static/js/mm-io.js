@@ -99,14 +99,17 @@ function openMap() {
     try {
       const d = parseAnyFile(name, text);
       if (!d) { showModal('Öffnen', 'Diese Datei konnte nicht gelesen werden.'); return; }
+      const check = validateFile(d);
+      if (check.fatal) { showModal('Öffnen', 'Diese Datei kann nicht geöffnet werden:\n\n• ' + check.errors.join('\n• ')); return; }
       if (!/\.json$/i.test(name) && d.meta && d.meta.m) d.meta.m.title = name.replace(/\.[^.]+$/, '');
       leaveRoomSilently();
       replaceDoc(d);
       afterDocLoaded();
       setDirty(false);
       flashStatus('Geöffnet: ' + name);
+      if (check.warnings.length) showModal('Öffnen', 'Die Datei wurde geöffnet. Dabei ist aufgefallen:\n\n• ' + check.warnings.slice(0, 8).join('\n• ') + (check.warnings.length > 8 ? `\n• … und ${check.warnings.length - 8} weitere` : ''));
     } catch (err) {
-      showModal('Öffnen', 'Fehler beim Laden: ' + err.message);
+      showModal('Öffnen', 'Fehler beim Laden: ' + (err instanceof SyntaxError ? 'Die Datei ist kein gültiges JSON (vielleicht beschädigt oder unvollständig).' : err.message));
     }
   });
 }
@@ -487,14 +490,25 @@ function afterDocLoaded() {
   applyMetaUi();
 }
 
-// ── Zwischenspeicher im Browser (nicht beim gemeinsamen Bearbeiten) ─
+// ── Zwischenspeicher im Browser ─────────────────────────────────────
+// Eigene Arbeit → „mm-autosave“. Während einer gemeinsamen Sitzung getrennt davon
+// → „mm-session-copy“ (sonst würde ein Beitritt die eigene Arbeit überschreiben).
+// Die Kopie hilft, wenn der Server die Sitzung nach 24 Stunden gelöscht hat.
 let autosaveTimer = null;
 function scheduleAutosave() {
-  if (EMBED || collabActive()) return;
+  if (EMBED) return;
   clearTimeout(autosaveTimer);
   autosaveTimer = setTimeout(() => {
-    try { localStorage.setItem('mm-autosave', JSON.stringify(docPayload())); } catch (e) { /* voll oder privat */ }
+    try {
+      if (collabActive()) {
+        if (collab.joined) localStorage.setItem('mm-session-copy', JSON.stringify({ room: collab.room, savedAt: new Date().toISOString(), payload: docPayload() }));
+      } else localStorage.setItem('mm-autosave', JSON.stringify(docPayload()));
+    } catch (e) { /* voll oder privat */ }
   }, 700);
+}
+/** Kopie einer gemeinsamen Sitzung (falls vorhanden): {room, savedAt, payload} */
+function sessionCopy() {
+  try { return JSON.parse(localStorage.getItem('mm-session-copy') || 'null'); } catch (e) { return null; }
 }
 function restoreAutosave() {
   try {

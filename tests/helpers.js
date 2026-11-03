@@ -26,6 +26,33 @@ function sampleDoc() {
   };
 }
 
+/** Projekt mit 10 Aufgaben in zwei Ästen (für das Prozess-Board). */
+function tenCardDoc() {
+  const d = sampleDoc();
+  const st = ['todo', 'todo', 'doing', 'todo', 'done', 'todo', 'doing'];
+  st.forEach((s, i) => {
+    d.doc.nodes['x' + i] = { id: 'x' + i, parent: i % 2 ? 'b1' : 'b2', order: 10 + i, text: 'Aufgabe ' + (i + 1), task: true, status: s, owner: i % 3 ? 'AB' : 'EF' };
+  });
+  return d;
+}
+
+/** Kanban im Prozess-Modus öffnen (Hinweis zum Protokoll schon bestätigt, Person gewählt). */
+async function openProcess(page, opts) {
+  const o = Object.assign({ name: 'AB' }, opts || {});
+  // Eigenschaften-Feld zu, damit alle fünf Spalten nebeneinander passen
+  await page.evaluate(name => { if (name) localStorage.setItem('mm-name', name); setKanbanMode('process'); markNoticeSeen(); toggleInspector(false); }, o.name);
+  await showView(page, 'kanban');
+  await expect(page.locator('.kpcol')).toHaveCount(o.cols || 5);
+}
+
+/** Spalten-ID zu einem Spaltentitel. */
+async function colId(page, title) {
+  return page.evaluate(t => boardColumns().find(c => c.title === t).id, title);
+}
+
+/** Protokolleinträge (älteste zuerst). */
+async function events(page) { return page.evaluate(() => auditList()); }
+
 /** App öffnen und warten, bis sie bereit ist. Sammelt Skriptfehler in page.errors. */
 async function openApp(page, base, opts) {
   page.errors = [];
@@ -80,4 +107,4 @@ async function touchTap(page, at) {
   await cdp.detach();
 }
 
-module.exports = { STATIC, PHP, FLASK, sampleDoc, openApp, loadDoc, getDoc, showView, center, mouseDrag, touchDrag, touchTap };
+module.exports = { STATIC, PHP, FLASK, sampleDoc, tenCardDoc, openApp, openProcess, colId, events, loadDoc, getDoc, showView, center, mouseDrag, touchDrag, touchTap };

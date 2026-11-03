@@ -68,7 +68,7 @@ if sys.platform == "darwin":
         info_plist={
             "CFBundleName": "Mindmap Editor",
             "CFBundleDisplayName": "Mindmap Editor",
-            "CFBundleShortVersionString": "1.0.0",
+            "CFBundleShortVersionString": "1.1.0",
             "NSHighResolutionCapable": True,
             # lokaler Server auf 127.0.0.1 (http) für die Oberfläche
             "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True},

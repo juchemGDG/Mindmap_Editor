@@ -58,7 +58,7 @@ async function startCollab() {
   try {
     const res = await collabPost({ action: 'create', doc: clone(doc) });
     if (res.error || !res.room) throw new Error(res.error || 'keine Sitzung erhalten');
-    collab = { room: res.room, key: res.key, ver: res.ver || 0, queue: [], busy: false, peers: [], fails: 0 };
+    collab = { room: res.room, key: res.key, ver: res.ver || 0, queue: [], busy: false, peers: [], fails: 0, joined: true };
     serverOffset = (res.now || Date.now()) - Date.now();
     setRoomUrl();
     readOnly = false;
@@ -89,8 +89,8 @@ function joinFromUrl() {
 }
 
 function askName(cb) {
-  showPrompt('Gemeinsam bearbeiten', 'Dein Name – so sehen die anderen, wer gerade woran arbeitet:', myName(), v => {
-    if (v && v.trim()) { try { localStorage.setItem('mm-name', v.trim().slice(0, 40)); } catch (e) { /* egal */ } }
+  showPrompt('Gemeinsam bearbeiten', 'Dein Kürzel oder Spitzname – so sehen die anderen, wer gerade woran arbeitet (kein vollständiger Name nötig):', myName(), v => {
+    if (v && v.trim()) { try { localStorage.setItem('mm-name', cleanName(v)); } catch (e) { /* egal */ } }
     if (cb) cb();
     collabSelectionChanged();
   });
@@ -110,6 +110,27 @@ function leaveRoom(ask) {
   requestRender(true);
   flashStatus('Sitzung verlassen – du arbeitest jetzt allein weiter');
 }
+/**
+ * Sitzung für alle beenden und die Daten sofort vom Server löschen.
+ * Jedes Gerät behält seine Kopie (Zwischenspeicher im Browser) und kann speichern.
+ */
+async function endRoom() {
+  if (!collab || !collab.key) return;
+  if (!confirm('Sitzung für alle beenden und die Daten sofort vom Server löschen?\n\nAlle Beteiligten behalten eine Kopie auf ihrem Gerät. Speichere vorher, wenn du die Datei brauchst.')) return;
+  const c = collab;
+  try {
+    const res = await collabPost({ action: 'close', room: c.room, key: c.key });
+    if (res.error && res.error !== 'notfound') throw new Error(res.error);
+  } catch (err) {
+    showModal('Gemeinsam bearbeiten', 'Die Sitzung konnte nicht gelöscht werden: ' + err.message);
+    return;
+  }
+  leaveRoomSilently();
+  hideShare();
+  scheduleAutosave();
+  flashStatus('Sitzung beendet – die Daten sind vom Server gelöscht');
+}
+
 function leaveRoomSilently() {
   if (!collab) return;
   clearTimeout(collab.timer);
@@ -160,7 +181,23 @@ async function syncNow() {
     if (res.error === 'notfound') {
       collab = null; readOnly = false; applyRoomUi();
       history.replaceState(null, '', location.pathname);
-      showModal('Gemeinsam bearbeiten', 'Diese Sitzung gibt es nicht (mehr). Vielleicht ist der Link unvollständig oder die Sitzung wurde gelöscht.');
+      if (c.joined) {
+        scheduleAutosave();
+        showModal('Gemeinsam bearbeiten', 'Die Sitzung wurde beendet bzw. ist abgelaufen und die Daten wurden vom Server gelöscht. Du arbeitest jetzt allein mit deiner Kopie weiter – zum Aufheben „Speichern“.');
+        return;
+      }
+      // alter Link: gibt es auf diesem Gerät noch eine Kopie dieser Sitzung?
+      const copy = sessionCopy();
+      if (copy && copy.room === c.room && copy.payload &&
+          confirm(`Diese Sitzung gibt es nicht mehr (Sitzungen werden 24 Stunden nach der letzten Nutzung gelöscht).\n\nAuf diesem Gerät gibt es eine Kopie vom ${new Date(copy.savedAt).toLocaleString('de-DE')}. Kopie öffnen?`)) {
+        replaceDoc(copy.payload);
+        afterDocLoaded();
+        flashStatus('Kopie der Sitzung geöffnet – zum Aufheben „Speichern“');
+        return;
+      }
+      if (!restoreAutosave()) replaceDoc(templateDoc(TEMPLATES[0]));
+      afterDocLoaded();
+      showModal('Gemeinsam bearbeiten', 'Diese Sitzung gibt es nicht (mehr). Vielleicht ist der Link unvollständig oder die Sitzung wurde gelöscht (nach 24 Stunden ohne Nutzung).');
       return;
     }
     if (res.error === 'readonly') {

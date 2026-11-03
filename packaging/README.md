@@ -22,7 +22,7 @@ Der Workflow `.github/workflows/build-packages.yml` baut alle drei Pakete auf
 GitHubs Runnern:
 
 1. auf GitHub → Reiter **Actions** → **„Pakete bauen"** → **Run workflow**
-   (oder einen Tag `v1.0.0` pushen)
+   (oder einen Tag `v1.1.0` pushen)
 2. nach ein paar Minuten unten am Workflow-Lauf die Artefakte herunterladen
 
 Alle Skripte bauen in `build/<plattform>/` und legen **nur** das fertige Paket
@@ -45,7 +45,7 @@ packaging\build_windows.bat
 ## Linux → `.tar.gz`
 ```bash
 ./packaging/build_linux.sh
-# Ergebnis: dist/Mindmap-Editor-1.0.0-linux-x86_64.tar.gz
+# Ergebnis: dist/Mindmap-Editor-1.1.0-linux-x86_64.tar.gz
 # Nutzer: entpacken, dann ./Mindmap-Editor/starten.sh
 ```
 
@@ -56,7 +56,7 @@ packaging\build_windows.bat
 
 ## Auf der Homepage anbieten
 
-Einen Tag pushen (`git tag v1.0.0 && git push origin v1.0.0`). Der Workflow
+Einen Tag pushen (`git tag v1.1.0 && git push origin v1.1.0`). Der Workflow
 hängt die Pakete mit festen Namen an das GitHub-Release:
 
 ```

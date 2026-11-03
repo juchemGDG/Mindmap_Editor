@@ -146,7 +146,7 @@ function measureNode(id, depth) {
   const badges = [];
   if (ph === 'plan') {
     if (n.task) {
-      if (n.owner) badges.push({ k: 'owner', t: initials(n.owner), full: n.owner });
+      for (const o of ownersOf(n).slice(0, 3)) badges.push({ k: 'owner', t: initials(o), full: o });
       if (n.due) badges.push({ k: 'due', t: fmtShort(n.due) });
       if (n.prio) badges.push({ k: 'prio', t: PRIOS[n.prio] ? PRIOS[n.prio].label : '' , p: n.prio });
     }

@@ -11,8 +11,10 @@ test('App lädt ohne Skriptfehler', async ({ page }) => {
 
 test('Tastatur: Tab legt Unterpunkt an, Tippen setzt Text, Rückgängig nimmt zurück', async ({ page }) => {
   await openApp(page);
+  await page.waitForTimeout(100);     // init() setzt den Fokus nach 50 ms selbst
   await page.evaluate(() => { selectOne(index().rid); canvas.focus(); });
   await page.keyboard.press('Tab');
+  await page.waitForFunction(() => editing && document.activeElement === editing.ta);
   await page.keyboard.type('Erste Idee');
   await page.keyboard.press('Escape');
   let d = await getDoc(page);

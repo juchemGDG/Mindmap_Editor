@@ -112,12 +112,12 @@ jobs:
           mkdir -p dist
           printf '#!/usr/bin/env bash\ncd "$(dirname "$0")"\nexec ./Mindmap-Editor "$@"\n' > build/linux/dist/Mindmap-Editor/starten.sh
           chmod +x build/linux/dist/Mindmap-Editor/starten.sh
-          tar -czf dist/Mindmap-Editor-1.0.0-linux-x86_64.tar.gz -C build/linux/dist Mindmap-Editor
+          tar -czf dist/Mindmap-Editor-1.1.0-linux-x86_64.tar.gz -C build/linux/dist Mindmap-Editor
 
       - uses: actions/upload-artifact@v7
         with:
           name: Mindmap-Editor-Linux
-          path: dist/Mindmap-Editor-1.0.0-linux-x86_64.tar.gz
+          path: dist/Mindmap-Editor-1.1.0-linux-x86_64.tar.gz
 
   release:
     name: Release-Dateien anhängen

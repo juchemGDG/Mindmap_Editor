@@ -5,7 +5,7 @@
 
 [Setup]
 AppName=Mindmap Editor
-AppVersion=1.0.0
+AppVersion=1.1.0
 AppPublisher=GDG Stuttgart
 DefaultDirName={autopf}\Mindmap Editor
 DefaultGroupName=Mindmap Editor

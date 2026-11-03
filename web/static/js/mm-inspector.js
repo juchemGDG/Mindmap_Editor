@@ -32,7 +32,8 @@ function toggleInspector(force) {
 
 function knownOwners() {
   const s = new Set();
-  for (const id in doc.nodes) if (doc.nodes[id].owner) s.add(doc.nodes[id].owner.trim());
+  for (const id in doc.nodes) for (const o of ownersOf(id)) s.add(o);
+  for (const id in doc.members || {}) if (doc.members[id].name) s.add(doc.members[id].name);
   return [...s].sort((a, b) => a.localeCompare(b, 'de'));
 }
 

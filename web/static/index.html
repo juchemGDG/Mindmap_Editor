@@ -3,12 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- Datenschutz: keine fremden Server (einzige Ausnahme: der Klick auf „Desktop-Version“ fragt bei GitHub
+       nach dem neuesten Paket), keine externen Bilder, kein Referrer. Siehe DATENSCHUTZ.md -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
   <title>Mindmap Editor</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <!-- Cache-Buster: bei jedem Deploy hochzählen (hier UND bei allen Skripten unten) -->
-  <link rel="stylesheet" href="mindmap.css?v=1">
+  <link rel="stylesheet" href="mindmap.css?v=2">
 </head>
 <body data-view="map" data-phase="collect" data-theme="light">
 
@@ -277,8 +281,8 @@
       <p class="modal-intro">Alle, die den Link öffnen, arbeiten gleichzeitig an dieser Mindmap – im Browser, ohne Anmeldung. Ideal zum Brainstormen in der Klasse.</p>
       <ul class="share-points">
         <li>Es gibt einen Link zum <b>Bearbeiten</b> und einen zum <b>Ansehen</b> (z. B. für den Beamer).</li>
-        <li>Die Mindmap wird dafür auf diesem Server gespeichert und nach 60 Tagen ohne Nutzung gelöscht.</li>
-        <li>Bitte keine persönlichen Daten eintragen. Als Name genügt ein Vorname oder Kürzel.</li>
+        <li>Die Mindmap wird dafür auf diesem Server gespeichert und <b>nach 24 Stunden ohne Nutzung</b> automatisch gelöscht – oder sofort mit „Sitzung beenden“. Jedes Gerät behält eine Kopie im Browser.</li>
+        <li>Bitte keine persönlichen Daten eintragen. Als Name genügt ein Kürzel oder Spitzname.</li>
       </ul>
       <div class="modal-buttons"><button id="share-start" class="btn-primary">Sitzung starten</button></div>
     </div>
@@ -292,6 +296,7 @@
         </div>
         <div class="share-link">
           <h3>Nur ansehen</h3>
+          <p class="share-warn">⚠ Nicht öffentlich weitergeben – wer den Link hat, sieht alles.</p>
           <div class="qr" id="share-view-qr"></div>
           <div class="share-url"><input id="share-view-url" readonly><button id="share-copy-view" class="btn-small">Kopieren</button></div>
           <button id="share-big-view" class="btn-link">QR-Code groß zeigen</button>
@@ -301,7 +306,8 @@
       <ul id="share-peers"></ul>
       <div class="modal-buttons">
         <button id="share-rename" class="btn-secondary">Meinen Namen ändern</button>
-        <button id="share-leave" class="btn-secondary danger">Sitzung verlassen</button>
+        <button id="share-leave" class="btn-secondary">Sitzung verlassen</button>
+        <button id="share-end" class="btn-secondary danger" title="Für alle beenden und die Daten sofort vom Server löschen">Sitzung beenden und Serverdaten löschen</button>
       </div>
     </div>
   </div>
@@ -374,6 +380,7 @@
           <li><b>Einfach</b> planen: Status, Zuständige, Fälligkeit. <b>Als Projekt</b>: zusätzlich Start und Ende, Dauer, Meilensteine und Abhängigkeiten – mit Gantt-Diagramm im Zeitplan.</li>
           <li><b>Gliederung:</b> dieselbe Mindmap als Liste – wie in einem Textprogramm schreiben.</li>
           <li><b>Kanban:</b> Karten zwischen „Ideen“, „Offen“, „In Arbeit“ und „Erledigt“ ziehen.</li>
+          <li><b>Kanban-Modus „Prozess“:</b> eigene Spalten (z. B. Backlog, Geplant, In Arbeit, Review, Erledigt) mit WIP-Limit, Tags, Blocker und Protokoll. Karte antippen öffnet sie; <b>⋯</b> an der Karte = „Verschieben nach …“. Tastatur: Pfeiltasten wandern, <kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd> verschiebt, <kbd>Enter</kbd> öffnet, <kbd>M</kbd> Menü.</li>
           <li><b>Zeitplan:</b> Aufgaben nach Fälligkeit; im Projektmodus Balken ziehen bzw. an den Rändern verlängern. „Automatisch planen“ vergibt fehlende Termine und hält Abhängigkeiten ein.</li>
           <li>Übergeordnete Punkte zeigen den Fortschritt ihrer Aufgaben an (z. B. 3/5).</li>
         </ul>
@@ -411,18 +418,25 @@
   </div>
 </div>
 
+<!-- ═══════ KANBAN (Prozess-Modus) ═══════ -->
+<div id="card-modal" class="modal"><div id="card-box" class="modal-box wide" role="dialog" aria-modal="true" aria-labelledby="card-title"></div></div>
+<div id="kanban-modal" class="modal"><div id="kanban-box" class="modal-box wide" role="dialog" aria-modal="true"></div></div>
+
 <div id="print-area"></div>
 
-<script src="vendor/qrcode.js?v=1"></script>
-<script src="js/mm-core.js?v=1"></script>
-<script src="js/mm-layout.js?v=1"></script>
-<script src="js/mm-map.js?v=1"></script>
-<script src="js/mm-inspector.js?v=1"></script>
-<script src="js/mm-views.js?v=1"></script>
-<script src="js/mm-check.js?v=1"></script>
-<script src="js/mm-io.js?v=1"></script>
-<script src="js/mm-collab.js?v=1"></script>
-<script src="js/mm-present.js?v=1"></script>
-<script src="js/mm-app.js?v=1"></script>
+<script src="vendor/qrcode.js?v=2"></script>
+<script src="js/mm-core.js?v=2"></script>
+<script src="js/mm-layout.js?v=2"></script>
+<script src="js/mm-map.js?v=2"></script>
+<script src="js/mm-inspector.js?v=2"></script>
+<script src="js/mm-views.js?v=2"></script>
+<script src="js/mm-markdown.js?v=2"></script>
+<script src="js/mm-kanban-model.js?v=2"></script>
+<script src="js/mm-kanban.js?v=2"></script>
+<script src="js/mm-check.js?v=2"></script>
+<script src="js/mm-io.js?v=2"></script>
+<script src="js/mm-collab.js?v=2"></script>
+<script src="js/mm-present.js?v=2"></script>
+<script src="js/mm-app.js?v=2"></script>
 </body>
 </html>

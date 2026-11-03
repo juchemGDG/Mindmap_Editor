@@ -47,6 +47,7 @@ body[data-theme="dark"] {
   --accent-soft: rgba(96, 165, 250, 0.14);
   --danger: #f87171;
   --ok: #6bbf95;
+  --warn: #f0a04b;
   --side: #080d18;
   --side2: #121b2d;
   --side3: #1c2942;
@@ -828,6 +829,110 @@ body[data-theme="dark"] .btn-primary { color: #0b1220; }
 }
 body.embed #btn-new { display: none; }
 body.readonly #node-actions { display: none !important; }
+
+/* ─── Kanban-Prozess (mm-kanban.js) ──────────────────────────── */
+/* Eingaben und Hinweise liegen über dem Karteneditor */
+#prompt-modal, #modal { z-index: 320; }
+.kboard.kp { overflow-x: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch; }
+.kpcol { min-width: 200px; border-top: 3px solid var(--cc, transparent); }
+.kpcol.idea { background: transparent; border: 1.5px dashed var(--border2); }
+.kpcol header { gap: 2px; padding: 0; flex-wrap: nowrap; }
+.kp-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kpcol header .kp-count { background: var(--surface3); border-radius: 999px; padding: 0 8px; font-size: 11px; color: var(--muted); font-weight: 600; flex-shrink: 0; }
+.kp-cat { font-size: 10.5px; color: var(--faint); padding: 0 4px 8px; }
+/* Trefferflächen mindestens 44 px (iPad) */
+.kp-icon, .kp-grip {
+  min-width: 44px; min-height: 44px; border: none; background: none; border-radius: 8px;
+  color: var(--muted); font-size: 17px; display: inline-grid; place-items: center;
+}
+.kp-icon:hover, .kp-grip:hover { background: var(--surface3); color: var(--accent); }
+.kp-grip { cursor: grab; touch-action: none; font-size: 15px; min-width: 32px; }
+.kp-addcard {
+  width: 100%; min-height: 44px; margin-top: 8px; border: 1.5px dashed transparent; background: none;
+  border-radius: 9px; color: var(--muted); font-size: 13px; text-align: left; padding: 0 10px;
+}
+.kp-addcard:hover, .kp-addcard:focus-visible { border-color: var(--border2); color: var(--accent); background: var(--surface); }
+.kp-icon:focus-visible, .kp-grip:focus-visible, .kpcard:focus-visible, .kp-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.kpcol.wip-over { border-color: var(--warn); background: rgba(180, 83, 9, 0.07); }
+.kpcol.wip-over header .kp-count { background: var(--warn); color: #fff; }
+.kp-wipwarn { font-size: 11.5px; font-weight: 600; color: var(--warn); margin: -2px 0 8px; }
+.kpcard { position: relative; padding-right: 40px; min-height: 44px; }
+.kpcard.isdone .ktext { color: var(--muted); text-decoration: line-through; }
+.kpcard.blocked { border-style: dashed; border-left-style: solid; }
+.kp-more {
+  position: absolute; top: 0; right: 0; width: 44px; height: 44px; border: none; background: none;
+  color: var(--muted); font-size: 18px; border-radius: 9px;
+}
+.kp-more:hover { color: var(--accent); background: var(--surface2); }
+.kp-block { font-size: 11.5px; color: var(--danger); font-weight: 600; margin-top: 4px; }
+.kp-note { font-size: 12px; color: var(--text2); margin-top: 5px; max-height: 3.9em; overflow: hidden; line-height: 1.3; }
+.kp-note.full { max-height: none; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-top: 6px; background: var(--surface2); }
+.kp.compact .kpcard { padding-top: 5px; padding-bottom: 5px; }
+.kp-tagbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -6px 0 14px; font-size: 12px; color: var(--muted); }
+.kp-tag {
+  display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--border); background: var(--surface);
+  color: var(--text2); border-radius: 999px; padding: 2px 10px; font-size: 12px; min-height: 32px;
+}
+.kp-tag.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.kp-tag.small { min-height: 0; padding: 0 7px; font-size: 10.5px; background: var(--surface2); }
+.kp-tag button { border: none; background: none; color: var(--muted); min-width: 28px; min-height: 28px; font-size: 14px; }
+.kp-cardtags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px; }
+.kp-me.missing select { border-color: var(--warn); }
+.kp-me-note { color: var(--warn); }
+
+/* Karteneditor und weitere Dialoge */
+.kp-dlg-path { font-size: 11.5px; color: var(--muted); margin: -4px 0 10px; }
+.kp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0 12px; }
+#card-box .insp-field input:not([type=checkbox]):not([type=radio]), #card-box .insp-field select, #card-box .insp-field textarea,
+#kanban-box .insp-field input:not([type=checkbox]):not([type=radio]), #kanban-box .insp-field select, #kanban-box .insp-field textarea {
+  width: 100%; border: 1px solid var(--border); background: var(--surface2); color: var(--text);
+  border-radius: 8px; padding: 8px 10px; font-size: 14px; font-family: inherit; min-height: 40px;
+}
+#card-box .seg button, #kanban-box .seg button { min-height: 36px; }
+#card-box .switch, #kanban-box .switch { width: 44px; height: 26px; margin: 9px 0; }
+#card-box .switch i::after, #kanban-box .switch i::after { width: 22px; height: 22px; }
+#card-box .switch input:checked + i::after, #kanban-box .switch input:checked + i::after { transform: translateX(18px); }
+.switch input:focus-visible + i { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.kp-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.kp-person { border: 1px solid var(--border); background: var(--surface); color: var(--text2); border-radius: 999px; padding: 4px 12px; min-height: 36px; font-size: 13px; }
+.kp-person.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+#card-box .kp-taginput { width: 140px !important; min-height: 32px; padding: 4px 8px; }
+.kp-hint { font-size: 11.5px; color: var(--muted); font-weight: 400; line-height: 1.45; }
+.kp-msg { font-size: 12.5px; color: var(--warn); min-height: 1em; }
+.kp-check { list-style: none; margin: 4px 0 6px; }
+.kp-check li label { display: flex; align-items: center; gap: 8px; min-height: 36px; font-size: 13.5px; }
+.kp-check input { width: 20px; height: 20px; }
+.kp-radio { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; padding: 5px 0; }
+.kp-logfilter { display: flex; flex-wrap: wrap; gap: 8px 12px; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.kp-logfilter select, .kp-logfilter input { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 6px; padding: 4px 6px; margin-left: 4px; max-width: 170px; }
+.kp-logwrap { max-height: 50vh; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+.kp-log { width: 100%; border-collapse: collapse; font-size: 12px; }
+.kp-log th { position: sticky; top: 0; background: var(--surface2); text-align: left; padding: 6px 8px; font-size: 11px; color: var(--muted); }
+.kp-log td { border-top: 1px solid var(--border); padding: 5px 8px; vertical-align: top; }
+.kp-log td:first-child { white-space: nowrap; color: var(--muted); }
+.kp-members { list-style: none; margin-bottom: 12px; }
+.kp-members li { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13.5px; }
+.kp-members small { color: var(--muted); margin-left: auto; }
+.share-warn { font-size: 11.5px; color: var(--warn); margin: -4px 0 6px; }
+
+/* Markdown im Karteninhalt */
+.md p, .md ul, .md ol, .md blockquote, .md pre { margin: 0 0 4px; }
+.md ul, .md ol { padding-left: 18px; }
+.md ul.md-tasks { list-style: none; padding-left: 2px; }
+.md h3, .md h4, .md h5 { font-size: 1.05em; margin: 2px 0 3px; }
+.md blockquote { border-left: 3px solid var(--border2); padding-left: 8px; color: var(--muted); }
+.md code { background: var(--surface3); border-radius: 4px; padding: 0 3px; font-size: 0.92em; }
+.md pre { background: var(--surface3); border-radius: 6px; padding: 6px 8px; overflow-x: auto; }
+.md a { color: var(--accent); }
+
+/* Kurzer Hinweis unten (WIP) – blockiert nichts */
+#k-toast {
+  display: none; position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 400;
+  max-width: min(560px, calc(100% - 24px)); align-items: center; gap: 10px;
+  background: var(--surface); color: var(--text); border: 1px solid var(--warn); border-left: 4px solid var(--warn);
+  border-radius: 10px; padding: 8px 8px 8px 14px; box-shadow: var(--shadow); font-size: 13px; line-height: 1.45;
+}
+#k-toast button { border: none; background: none; color: var(--muted); min-width: 44px; min-height: 44px; font-size: 15px; }
 
 /* Drucken (Export › Drucken / PDF) */
 @media print {

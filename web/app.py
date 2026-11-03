@@ -35,15 +35,32 @@ DOWNLOADS_DIR = os.path.join(BASE_DIR, "static", "downloads")
 DATA_DIR = os.environ.get("MINDMAP_DATA_DIR") or os.path.join(BASE_DIR, "collab-data")
 KEEP_OPS = 3000            # so viele Operationen bleiben für Nachzügler abrufbar
 PEER_TTL = 15              # Sekunden ohne Lebenszeichen, bis jemand als "weg" gilt
-ROOM_TTL_DAYS = 60         # unbenutzte Sitzungen werden danach gelöscht
+# Datenschutz: Sitzungen ohne Nutzung werden nach so vielen Stunden gelöscht
+ROOM_TTL_HOURS = float(os.environ.get("MINDMAP_ROOM_TTL_HOURS") or 24)
+CLEANUP_EVERY = 600        # Sekunden zwischen zwei Aufräum-Läufen
 MAX_DOC_BYTES = 8 * 1024 * 1024
-COLLECTIONS = {"meta", "nodes", "links", "votes"}
-ROOM_RE = re.compile(r"^[a-z0-9]{6,16}$")
+COLLECTIONS = {"meta", "nodes", "links", "votes", "columns", "members", "events"}
+ROOM_RE = re.compile(r"^[a-z0-9]{6,40}$")      # alte Links: 8 Zeichen, neue: 22
 ROOM_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
+ROOM_LEN = 22              # ≈ 109 Bit Zufall: nicht zu erraten
 
 _locks = {}
 _locks_guard = threading.Lock()
 _peers = {}                # raum -> {client: {...}}
+_last_seen = {}            # raum -> Zeitpunkt der letzten Anfrage (zählt als "benutzt")
+_last_cleanup = [0.0]
+
+# Sicherheits-Header für alle Antworten (siehe DEPLOY.md)
+CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
+       "font-src 'self'; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'self'; form-action 'none'")
+
+
+@app.after_request
+def _security_headers(resp):
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("Referrer-Policy", "no-referrer")
+    resp.headers.setdefault("Content-Security-Policy", CSP)
+    return resp
 
 
 def _room_lock(room):
@@ -72,14 +89,27 @@ def _save_room(room, state):
 
 
 def _cleanup_rooms():
-    limit = time.time() - ROOM_TTL_DAYS * 86400
+    """Sitzungen löschen, die länger als ROOM_TTL_HOURS niemand benutzt hat."""
+    _last_cleanup[0] = time.time()
+    limit = time.time() - ROOM_TTL_HOURS * 3600
     try:
         for name in os.listdir(DATA_DIR):
             path = os.path.join(DATA_DIR, name)
-            if name.endswith(".json") and os.path.getmtime(path) < limit:
+            if not name.endswith(".json"):
+                continue
+            room = name[:-5]
+            last = max(os.path.getmtime(path), _last_seen.get(room, 0))
+            if last < limit:
                 os.remove(path)
+                _peers.pop(room, None)
+                _last_seen.pop(room, None)
     except OSError:
         pass
+
+
+def _maybe_cleanup():
+    if time.time() - _last_cleanup[0] > CLEANUP_EVERY:
+        _cleanup_rooms()
 
 
 def _valid_op(op):
@@ -94,6 +124,9 @@ def _valid_op(op):
     if "put" in op and not isinstance(op["put"], dict):
         return False
     if "set" in op and not isinstance(op["set"], dict):
+        return False
+    # Protokoll: nur anhängen – Einträge dürfen nicht geändert oder gelöscht werden
+    if op["c"] == "events" and "put" not in op:
         return False
     return True
 
@@ -139,7 +172,7 @@ def api_collab():
         os.makedirs(DATA_DIR, exist_ok=True)
         _cleanup_rooms()
         for _ in range(20):
-            room = "".join(secrets.choice(ROOM_ALPHABET) for _ in range(8))
+            room = "".join(secrets.choice(ROOM_ALPHABET) for _ in range(ROOM_LEN))
             if not os.path.exists(_room_path(room)):
                 break
         key = secrets.token_urlsafe(12).replace("-", "x").replace("_", "y")
@@ -148,12 +181,29 @@ def api_collab():
             _save_room(room, state)
         return jsonify(room=room, key=key, ver=0, now=_now_ms())
 
-    if action != "sync":
+    if action not in ("sync", "close"):
         return jsonify(error="unbekannte Aktion"), 400
 
     room = str(body.get("room") or "")
     if not ROOM_RE.match(room):
         return jsonify(error="notfound")
+    _maybe_cleanup()
+
+    if action == "close":
+        # Sitzung beenden: Daten sofort löschen (nur mit Bearbeiten-Schlüssel)
+        with _room_lock(room):
+            state = _load_room(room)
+            if state is None:
+                return jsonify(error="notfound")
+            if not secrets.compare_digest(str(body.get("key") or ""), state.get("key", "")):
+                return jsonify(error="readonly")
+            try:
+                os.remove(_room_path(room))
+            except OSError:
+                pass
+            _peers.pop(room, None)
+            _last_seen.pop(room, None)
+        return jsonify(ok=True)
     client = str(body.get("client") or "")[:40]
     since = body.get("since")
     since = since if isinstance(since, int) else -1
@@ -172,6 +222,10 @@ def api_collab():
             for op in ops[:2000]:
                 if not _valid_op(op):
                     continue
+                # Protokolleintrag schon da (erneut gesendet): nicht doppeln
+                events = state["doc"].get("events")
+                if op["c"] == "events" and isinstance(events, dict) and op["id"] in events:
+                    continue
                 _apply_op(state["doc"], op)
                 state["ver"] += 1
                 state["ops"].append({"v": state["ver"], "c": client, "o": op})
@@ -187,6 +241,7 @@ def api_collab():
         me = body.get("me") if isinstance(body.get("me"), dict) else {}
         peers = _peers.setdefault(room, {})
         now = time.time()
+        _last_seen[room] = now
         if client:
             sel = me.get("sel") if isinstance(me.get("sel"), list) else []
             peers[client] = {

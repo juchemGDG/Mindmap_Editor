@@ -10,6 +10,7 @@
 //   M01–M10  Struktur der Mindmap   (ab Phase „Ordnen“)
 //   P01–P06  Aufgaben               (Phase „Planen“)
 //   P07–P10  Projektplanung         (Phase „Planen“, Planungsart „Projekt“)
+//   K01–K03  Kanban-Prozess         (nur im Kanban-Modus „Prozess“)
 // ════════════════════════════════════════════════════════════════════
 
 const RULES = {
@@ -33,6 +34,9 @@ const RULES = {
   P08: { sev: 'Fehler',  group: 'Projekt',  text: 'Abhängigkeit nicht eingehalten' },
   P09: { sev: 'Fehler',  group: 'Projekt',  text: 'Kreis in den Abhängigkeiten' },
   P10: { sev: 'Hinweis', group: 'Projekt',  text: 'Unteraufgabe außerhalb der Oberaufgabe' },
+  K01: { sev: 'Hinweis', group: 'Kanban',   text: 'WIP-Limit einer Spalte überschritten' },
+  K02: { sev: 'Hinweis', group: 'Kanban',   text: 'Karte überfällig' },
+  K03: { sev: 'Hinweis', group: 'Kanban',   text: 'Karte lange blockiert' },
 };
 const LONG_TEXT = 50;
 const MAX_MAIN = 8;
@@ -192,6 +196,25 @@ function checkP10Nested() {
   return out;
 }
 
+// ── Kanban-Prozess ──────────────────────────────────────────────────
+function checkK01Wip() {
+  const cards = boardCards();
+  return boardColumns().filter(c => wipOver(c, cards)).map(c => F('K01',
+    `In „${c.title}“ liegen ${wipCount(c.id, cards)} Karten, das Limit ist ${c.wip}. ${WIP_QUESTION}`, cards.get(c.id)));
+}
+function checkK02Overdue() {
+  // In der Phase „Planen“ meldet P03 dasselbe – dann nicht doppelt
+  if (phase() === 'plan' && !(M().disabledRules || []).includes('P03')) return [];
+  const today = todayISO();
+  return tasksAll().filter(id => doc.nodes[id].due && doc.nodes[id].due < today && statusOf(id) !== 'done')
+    .map(id => F('K02', `Die Karte ${q(id)} war am ${fmtLong(doc.nodes[id].due)} fällig. Neu planen oder Hilfe holen?`, [id]));
+}
+function checkK03Blocked() {
+  const limit = nowSynced() - BLOCK_DAYS * 86400000;
+  return tasksAll().filter(id => statusOf(id) !== 'done' && manualBlocked(doc.nodes[id]) && (doc.nodes[id].blocked.since || 0) < limit)
+    .map(id => F('K03', `Die Karte ${q(id)} ist seit mehr als ${BLOCK_DAYS} Tagen blockiert${doc.nodes[id].blocked.reason ? ` („${doc.nodes[id].blocked.reason}“)` : ''}. Wer kann helfen?`, [id]));
+}
+
 function evaluateMap() {
   const ph = phase();
   let out = [];
@@ -201,6 +224,7 @@ function evaluateMap() {
     out = out.concat(checkP01Owner(), checkP02Due(), checkP03Overdue(), checkP04P05Parents(), checkP06Branches());
     if (M().planMode === 'project') out = out.concat(checkP07Range(), checkP08Deps(), checkP09Cycles(), checkP10Nested());
   }
+  if (kanbanProcess()) out = out.concat(checkK01Wip(), checkK02Overdue(), checkK03Blocked());
   const off = new Set(M().disabledRules || []);
   out = out.filter(f => !off.has(f.rule));
   out.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'Fehler' ? -1 : 1) || a.rule.localeCompare(b.rule));

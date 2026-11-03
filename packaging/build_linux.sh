@@ -9,7 +9,7 @@ set -e
 cd "$(dirname "$0")/.."
 
 PYTHON="${PYTHON:-python3}"
-VERSION="1.0.0"
+VERSION="1.1.0"
 WORK="build/linux"                       # eigener Arbeitsordner – dist/ bleibt unangetastet
 OUT="dist/Mindmap-Editor-${VERSION}-linux-x86_64.tar.gz"
 

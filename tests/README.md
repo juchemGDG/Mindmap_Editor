@@ -30,6 +30,12 @@ statisch (Port 4310), PHP (4311) und Flask (4312). Sitzungsdaten der Tests lande
 | Datei | Inhalt |
 |---|---|
 | `baseline.spec.js` | Verhalten von Version 1.0.0 (Mindmap, Kanban *einfach*, Exporte, Zeitplan, Regeln) – darf sich nicht ändern |
-| `ipad.spec.js` | Bedienung per Touch (iPad-Maße) |
-| `collab.spec.js` | Gemeinsames Bearbeiten gegen PHP und Flask |
-| `helpers.js` | Beispieldaten, Ziehen mit Maus/Finger |
+| `kanban.spec.js` | Kanban-Modus „Prozess“: Migration, Spalte ↔ Status, WIP/K-Regeln, Protokoll, Karteneditor, Tastatur, Markdown |
+| `ipad.spec.js` | Bedienung per Touch (iPad-Maße), u. a. Abnahme: Board mit 5 Spalten und 10 Karten |
+| `collab.spec.js` | Gemeinsames Bearbeiten gegen PHP und Flask, inkl. gemeinsames Protokoll |
+| `privacy.spec.js` | Datenschutz: keine Anfragen an Dritte, Sitzung löschen, Ablauf, Header, lokale Daten |
+| `helpers.js` | Beispieldaten, Ziehen und Tippen mit Maus/Finger |
+
+Hinweis: Getestet wird mit Chromium (auch für „iPad“: iPad-Maße und echte
+Touch-Ereignisse). Safari/WebKit und das Desktop-Fenster (pywebview) sind nicht
+automatisch getestet.

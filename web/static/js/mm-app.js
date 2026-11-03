@@ -58,11 +58,14 @@ function closePrompt(value) {
   if (promptCb) { const cb = promptCb; promptCb = null; cb(value); }
 }
 
-const MODALS = ['prompt-modal', 'modal', 'help-modal', 'download-modal', 'template-modal', 'plan-modal', 'share-modal', 'qr-big'];
+// Reihenfolge = was zuoberst liegt (die Eingabe kann über dem Karteneditor erscheinen)
+const MODALS = ['prompt-modal', 'modal', 'help-modal', 'download-modal', 'template-modal', 'plan-modal', 'share-modal', 'qr-big', 'kanban-modal', 'card-modal'];
 function topModal() { return MODALS.map(id => $(id)).find(el => el && el.style.display === 'flex'); }
 function closeModal(el) {
   if (!el) return;
   if (el.id === 'prompt-modal') closePrompt(null);
+  else if (el.id === 'card-modal') closeCard();
+  else if (el.id === 'kanban-modal') { if (kpDialog && kpDialog.kind === 'notice') markNoticeSeen(); closeKDialog(); }
   else el.style.display = 'none';
 }
 
@@ -211,6 +214,7 @@ function onDocChanged(info) {
   applyMetaUi();
   updateFocusBar();
   if (info.local || info.replaced) { if (!info.replaced) setDirty(true); scheduleAutosave(); }
+  else if (info.remote) scheduleAutosave();      // Kopie der gemeinsamen Sitzung auf diesem Gerät
   clearTimeout(checkTimer);
   checkTimer = setTimeout(() => runCheck(), 300);
   checkLive();
@@ -264,6 +268,9 @@ function init() {
   bindMapEvents();
   bindOutline();
   bindKanban();
+  bindKanbanProcess();
+  bindCardDialog();
+  bindKDialog();
   bindTimeline();
   bindCheckPanel();
   bindPlanWizard();
@@ -362,6 +369,7 @@ function init() {
   on('share-close', 'click', hideShare);
   on('share-start', 'click', startCollab);
   on('share-leave', 'click', () => leaveRoom(true));
+  on('share-end', 'click', endRoom);
   on('share-copy-edit', 'click', () => copyField('share-edit-url'));
   on('share-copy-view', 'click', () => copyField('share-view-url'));
   on('share-big-edit', 'click', () => showQrBig($('share-edit-url').value));
@@ -371,7 +379,8 @@ function init() {
   // Klick auf den abgedunkelten Hintergrund schließt den Dialog
   for (const id of MODALS) {
     const el = $(id);
-    if (el && id !== 'qr-big') el.addEventListener('click', e => { if (e.target === el) closeModal(el); });
+    // Kanban-Dialoge regeln das selbst (mm-kanban.js)
+    if (el && id !== 'qr-big' && id !== 'card-modal' && id !== 'kanban-modal') el.addEventListener('click', e => { if (e.target === el) closeModal(el); });
   }
 
   // ── global ──

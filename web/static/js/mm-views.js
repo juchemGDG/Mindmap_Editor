@@ -37,7 +37,7 @@ function chipsHtml(id, opts) {
   const n = doc.nodes[id];
   const t = T();
   let h = '';
-  if (n.task && n.owner) h += `<span class="chip owner" title="${esc(n.owner)}">${esc(initials(n.owner))}</span>`;
+  if (n.task) for (const o of ownersOf(n)) h += `<span class="chip owner" title="${esc(o)}">${esc(initials(o))}</span>`;
   if (n.task && n.due && (!opts || !opts.noDue)) {
     const over = n.due < todayISO() && n.status !== 'done';
     h += `<span class="chip${over ? ' over' : ''}">${n.start && M().planMode === 'project' && n.start !== n.due ? fmtShort(n.start) + '–' : ''}${fmtShort(n.due)}</span>`;
@@ -249,13 +249,14 @@ function taskSort(a, b) {
 function renderKanban() {
   const host = $('kanban-view');
   if (!host) return;
+  if (kanbanProcess()) { renderKanbanProcess(); return; }   // Prozess-Modus: mm-kanban.js
   const order = treeOrder();
   const branches = kids(index().rid);
   const owners = knownOwners();
   const pass = id => {
     if (kanbanFilter.branch && branchOf(id) !== kanbanFilter.branch && id !== kanbanFilter.branch) return false;
     if (kanbanFilter.owner === '-') return !doc.nodes[id].owner;
-    if (kanbanFilter.owner && (doc.nodes[id].owner || '') !== kanbanFilter.owner) return false;
+    if (kanbanFilter.owner && !ownersOf(id).includes(kanbanFilter.owner)) return false;
     return true;
   };
   const tasks = order.filter(id => isTask(id) && pass(id));
@@ -282,6 +283,7 @@ function renderKanban() {
   };
   host.innerHTML = `<div class="view-head"><h2>Kanban</h2>
     <div class="view-tools">
+      ${readOnly ? '' : kanbanModeSwitch()}
       <label>Ast <select data-kf="branch"><option value="">alle</option>${branches.map(b => `<option value="${esc(b)}"${kanbanFilter.branch === b ? ' selected' : ''}>${esc(label(b))}</option>`).join('')}</select></label>
       <label>Zuständig <select data-kf="owner"><option value="">alle</option><option value="-"${kanbanFilter.owner === '-' ? ' selected' : ''}>niemand</option>${owners.map(o => `<option${kanbanFilter.owner === o ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></label>
       <label class="check"><input type="checkbox" data-kf="ideas"${kanbanFilter.ideas ? ' checked' : ''}> Ideen-Spalte</label>
@@ -292,16 +294,20 @@ function renderKanban() {
     </section>`).join('')}</div>`;
 }
 
+// Im Prozess-Modus übernimmt bindKanbanProcess() (mm-kanban.js) – darum prüft
+// jeder Handler hier zuerst kanbanProcess().
 function bindKanban() {
   const host = $('kanban-view');
   if (!host) return;
   host.addEventListener('change', e => {
+    if (kanbanProcess()) return;
     const f = e.target.dataset.kf;
     if (!f) return;
     kanbanFilter[f] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     renderKanban();
   });
   host.addEventListener('click', e => {
+    if (kanbanProcess()) return;
     const add = e.target.closest('[data-kadd]');
     if (add) {
       const status = add.dataset.kadd;
@@ -316,7 +322,7 @@ function bindKanban() {
   });
   host.addEventListener('dblclick', e => {
     const c = e.target.closest('[data-card]');
-    if (!c || readOnly) return;
+    if (!c || readOnly || kanbanProcess()) return;
     const id = c.dataset.card;
     showPrompt('Text ändern', '', doc.nodes[id].text || '', v => {
       if (v === null) return;
@@ -325,7 +331,7 @@ function bindKanban() {
   });
   host.addEventListener('pointerdown', e => {
     const c = e.target.closest('[data-card]');
-    if (!c || e.button !== 0) return;
+    if (!c || e.button !== 0 || kanbanProcess()) return;
     const id = c.dataset.card;
     if (!sel.has(id) || sel.size > 1) { sel = new Set([id]); focusId = id; selLink = null; updateInspector(); syncOtherViewsSelection(); updateCaptureTarget(); }
     if (readOnly) return;
@@ -635,7 +641,7 @@ function renderGantt(host) {
       const fr = n.status === 'done' ? 1 : n.status === 'doing' ? 0.5 : 0;
       svg += `<g data-bar="${esc(id)}" class="g-bar"><rect data-x="${x + 2}" data-w="${w - 4}" x="${x + 2}" y="${y + 7}" width="${w - 4}" height="${RH - 14}" rx="5" fill="${hexAlpha(col, 0.22)}"${selc}/>`;
       if (fr) svg += `<rect x="${x + 2}" y="${y + 7}" width="${Math.max(6, (w - 4) * fr)}" height="${RH - 14}" rx="5" fill="${n.status === 'done' ? t.done : col}" opacity="0.75" pointer-events="none"/>`;
-      if (n.owner && w > 40) svg += `<text x="${x + 8}" y="${y + RH / 2 + 4}" class="g-owner" pointer-events="none">${esc(initials(n.owner))}</text>`;
+      if (n.owner && w > 40) svg += `<text x="${x + 8}" y="${y + RH / 2 + 4}" class="g-owner" pointer-events="none">${esc(ownerInitials(n))}</text>`;
       svg += `</g>`;
     }
   }
