@@ -605,9 +605,43 @@ function downloadRow(item) {
   a.querySelector('.download-meta').textContent = item.hint;
   return a;
 }
-function setRow(a, hint, extra, missing) {
-  a.classList.toggle('missing', !!missing);
-  a.querySelector('.download-meta').textContent = missing ? 'noch nicht verfügbar' : (extra ? `${hint} · ${extra}` : hint);
+// Eine Zeile wird erst zum Link, wenn feststeht, dass es die Datei wirklich gibt –
+// so zeigt der Dialog nie auf eine Datei, die auf dem Server fehlt.
+function offerRow(a, url, hint, extra, asDownload) {
+  a.href = url;
+  if (asDownload) a.setAttribute('download', asDownload); else a.removeAttribute('download');
+  a.removeAttribute('aria-disabled');
+  a.classList.remove('missing', 'pending');
+  a.dataset.state = 'ok';
+  a.querySelector('.download-meta').textContent = extra ? `${hint} · ${extra}` : hint;
+}
+function missingRow(a) {
+  a.removeAttribute('href');
+  a.removeAttribute('download');
+  a.setAttribute('aria-disabled', 'true');
+  a.classList.remove('pending');
+  a.classList.add('missing');
+  a.dataset.state = 'missing';
+  a.querySelector('.download-meta').textContent = 'noch nicht verfügbar';
+}
+function releasesUrl() { return GITHUB_REPO ? `https://github.com/${GITHUB_REPO}/releases` : ''; }
+
+/** Nachdem alles geprüft ist: Gibt es gar nichts, freundlich erklären statt leerer Links. */
+function finishDownloads(rows, info, version) {
+  const any = Object.values(rows).some(a => a.dataset.state === 'ok');
+  info.textContent = '';
+  if (version) info.textContent = 'Aktuelle Version: ' + version;
+  if (any) return;
+  info.textContent = 'Die Desktop-Version ist noch nicht veröffentlicht.';
+  const url = releasesUrl();
+  if (url) {
+    const p = document.createElement('a');
+    p.href = url; p.target = '_blank'; p.rel = 'noopener noreferrer';
+    p.className = 'download-releases';
+    p.textContent = 'Später nachsehen: Veröffentlichungen auf GitHub ↗';
+    info.appendChild(document.createElement('br'));
+    info.appendChild(p);
+  }
 }
 
 function showDownloads() {
@@ -618,7 +652,8 @@ function showDownloads() {
   const rows = {};
   for (const item of DOWNLOADS) {
     const a = downloadRow(item);
-    a.href = 'downloads/' + item.file;
+    a.classList.add('pending');
+    a.setAttribute('aria-disabled', 'true');
     rows[item.key] = a;
     list.appendChild(a);
   }
@@ -628,32 +663,27 @@ function showDownloads() {
     .then(data => {
       for (const file of data.files || []) {
         const a = rows[file.key]; if (!a) continue;
-        if (file.available) {
-          a.href = file.url;
-          if (file.source === 'github') a.removeAttribute('download'); else a.setAttribute('download', file.name);
-          setRow(a, file.hint, [humanSize(file.size), file.source === 'lokal' ? 'lokale Kopie' : ''].filter(Boolean).join(' · '), false);
-        } else { a.removeAttribute('href'); setRow(a, file.hint, '', true); }
+        if (file.available) offerRow(a, file.url, file.hint, [humanSize(file.size), file.source === 'lokal' ? 'lokale Kopie' : ''].filter(Boolean).join(' · '), file.source === 'github' ? null : file.name);
+        else missingRow(a);
       }
-      info.textContent = data.version ? `Aktuelle Version: ${data.version}` + (data.published ? ` (${data.published})` : '')
-        : (data.error ? `Kein GitHub-Release gefunden – ${data.error}` : 'Kein GitHub-Release gefunden.');
+      finishDownloads(rows, info, data.version ? data.version + (data.published ? ` (${data.published})` : '') : '');
     })
     .catch(() => githubDirekt(rows, info));
 }
 
 function githubDirekt(rows, info) {
-  const lokal = (only) => {
-    for (const item of DOWNLOADS) {
-      if (only && !only.includes(item.key)) continue;
-      const a = rows[item.key];
-      a.setAttribute('download', item.file);
-      a.href = 'downloads/' + item.file;
-      fetch('downloads/' + item.file, { method: 'HEAD' }).then(r => {
-        if (!r.ok) { a.removeAttribute('href'); setRow(a, item.hint, '', true); return; }
-        setRow(a, item.hint, humanSize(Number(r.headers.get('content-length'))), false);
-      }).catch(() => {});
-    }
-  };
-  if (!GITHUB_REPO) { info.textContent = ''; lokal(); return; }
+  // Rückfallebene: Dateien im Ordner downloads/ – aber nur anbieten, wenn es sie gibt
+  const lokal = (keys, version) => Promise.all(DOWNLOADS.filter(item => keys.includes(item.key)).map(item =>
+    fetch('downloads/' + item.file, { method: 'HEAD', cache: 'no-store' })
+      .then(r => {
+        const type = r.headers.get('content-type') || '';
+        if (!r.ok || type.startsWith('text/html')) { missingRow(rows[item.key]); return; }   // 404- oder Fehlerseite
+        offerRow(rows[item.key], 'downloads/' + item.file, item.hint, humanSize(Number(r.headers.get('content-length'))), item.file);
+      })
+      .catch(() => missingRow(rows[item.key]))))
+    .then(() => finishDownloads(rows, info, version));
+  const all = DOWNLOADS.map(d => d.key);
+  if (!GITHUB_REPO) { lokal(all, ''); return; }
   fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } })
     .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
     .then(release => {
@@ -661,14 +691,11 @@ function githubDirekt(rows, info) {
       for (const a of release.assets || []) assets[a.name] = a;
       const missing = [];
       for (const item of DOWNLOADS) {
-        const a = rows[item.key], asset = assets[item.file];
+        const asset = assets[item.file];
         if (!asset) { missing.push(item.key); continue; }
-        a.href = asset.browser_download_url;
-        a.removeAttribute('download');
-        setRow(a, item.hint, humanSize(asset.size), false);
+        offerRow(rows[item.key], asset.browser_download_url, item.hint, humanSize(asset.size), null);
       }
-      info.textContent = `Aktuelle Version: ${release.tag_name}` + (release.published_at ? ` (${release.published_at.slice(0, 10)})` : '');
-      if (missing.length) lokal(missing);
+      lokal(missing, release.tag_name + (release.published_at ? ` (${release.published_at.slice(0, 10)})` : ''));
     })
-    .catch(() => { info.textContent = ''; lokal(); });
+    .catch(() => lokal(all, ''));
 }

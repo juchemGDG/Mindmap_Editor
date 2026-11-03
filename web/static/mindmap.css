@@ -779,7 +779,8 @@ body[data-theme="dark"] .btn-primary { color: #0b1220; }
   color: var(--text); text-decoration: none; font-size: 14px;
 }
 .download-item:hover { border-color: var(--accent); background: var(--accent-soft); }
-.download-item.missing { opacity: 0.55; pointer-events: none; }
+.download-item.missing, .download-item.pending { opacity: 0.55; pointer-events: none; }
+.download-releases { font-weight: 500; color: var(--accent); }
 .download-os { font-weight: 700; flex: 1; }
 .download-meta { font-size: 12px; color: var(--muted); }
 
