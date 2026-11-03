@@ -12,6 +12,7 @@
 //   doc.columns[id]   Kanban-Spalten (Prozess-Modus) {id, order, title, statusKey, …}
 //   doc.members[id]   Mitglieder (Kürzel) {id, name, color}
 //   doc.events[id]    Protokoll (nur anhängen) {id, t, who, type, task, …}
+//   doc.retros[id]    Retrospektiven {id, created, title, snapshot, q1…q4}
 //
 // Jede Sammlung ist ein Objekt "ID → Eintrag" und KEINE Liste. Darum gehen
 // beim gemeinsamen Bearbeiten keine Einträge verloren: zwei Personen legen
@@ -33,7 +34,7 @@ const FORMAT         = 'mindmap-editor';
 // Schema-Version der Datei: 1 = Version 1.0.0, 2 = mit Kanban-Prozess (Spalten, Mitglieder, Protokoll).
 // Dateien mit Version 1 brauchen keine Umwandlung – die neuen Sammlungen sind dann einfach leer.
 const FORMAT_VERSION = 2;
-const COLLECTIONS    = ['meta', 'nodes', 'links', 'votes', 'columns', 'members', 'events'];
+const COLLECTIONS    = ['meta', 'nodes', 'links', 'votes', 'columns', 'members', 'events', 'retros'];
 
 const PHASES = [
   { key: 'collect', label: 'Sammeln', hint: 'Ideen schnell festhalten – ohne Bewertung' },
@@ -85,7 +86,7 @@ function defaultMeta() {
 
 function emptyDoc(rootText) {
   const root = { id: 'root', parent: null, order: 0, text: rootText || 'Zentralthema' };
-  return { meta: { m: defaultMeta() }, nodes: { root }, links: {}, votes: {}, columns: {}, members: {}, events: {} };
+  return { meta: { m: defaultMeta() }, nodes: { root }, links: {}, votes: {}, columns: {}, members: {}, events: {}, retros: {} };
 }
 
 function rootId() {
@@ -493,7 +494,7 @@ function validateFile(p) {
   if (p && typeof p.version === 'number' && p.version > FORMAT_VERSION) {
     warnings.push(`Die Datei stammt aus einer neueren Version des Mindmap Editors (Format ${p.version}). Unbekannte Teile bleiben erhalten, werden aber nicht angezeigt.`);
   }
-  for (const c of ['columns', 'members', 'events']) {
+  for (const c of ['columns', 'members', 'events', 'retros']) {
     if (src[c] != null && (typeof src[c] !== 'object' || Array.isArray(src[c]))) warnings.push(`Der Teil „${c}“ hat ein falsches Format und wird ignoriert.`);
   }
   const STATUS_KEYS = ['idea', 'todo', 'doing', 'done'];

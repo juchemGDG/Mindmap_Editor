@@ -77,6 +77,8 @@ web/static/               die eigentliche App (läuft auch rein statisch)
   js/mm-markdown.js       sicheres Markdown für Karteninhalte (ohne HTML und Bilder)
   js/mm-kanban-model.js   Kanban-Prozess: Spalten, Abgleich Spalte ↔ Status, Protokoll, Datenschutz
   js/mm-kanban.js         Kanban-Prozess: Board, Karteneditor, Dialoge
+  js/mm-metrics.js        Kennzahlen aus dem Protokoll (reine Rechnung)
+  js/mm-kanban-insights.js Kennzahlen-Ansicht (SVG-Diagramme) und Retrospektive
   js/mm-check.js          Prüfregeln, „Zum Plan machen“
   js/mm-io.js             Speichern/Laden, Import/Export, Vorlagen, Einbettung, Downloads
   js/mm-collab.js         gemeinsames Bearbeiten (Client)
@@ -122,10 +124,13 @@ Dateiformat (`Speichern`), `version` = Schema-Version (1 = 1.0.0, 2 = ab 1.1.0):
     "links": { "l…": { "id": "l…", "from": "n…", "to": "n…", "label": "führt zu" } },
     "votes": { "n…|c…": { "node": "n…", "voter": "c…", "n": 2 } },
     "columns": { "k…": { "id": "k…", "order": 1, "title": "Review", "statusKey": "idea|todo|doing|done",
-                         "wip": 2, "color": "c2" } },
+                         "wip": 2, "color": "c2", "dod": ["Von einer anderen Person geprüft"] } },
     "members": { "p…": { "id": "p…", "name": "AB" } },
     "events":  { "e…": { "id": "e…", "t": 1767000000000, "who": "AB", "type": "task.moved",
-                         "task": "n…", "title": "…", "from": "In Arbeit", "to": "Review" } } } }
+                         "task": "n…", "title": "…", "from": "In Arbeit", "to": "Review",
+                         "fromCol": "k…", "toCol": "k…", "fromCat": "doing", "toCat": "doing" } },
+    "retros":  { "r…": { "id": "r…", "created": 1767000000000, "title": "Retrospektive vom …",
+                         "snapshot": { "leadMedian": 5.5, … }, "q1": "…", "q2": "…", "q3": "…", "q4": "…" } } } }
 ```
 
 Mehrere Zuständige stehen durch Komma getrennt im bisherigen Feld `owner` – so zeigen
@@ -221,6 +226,29 @@ nachvollziehbarer Ablauf als Grundlage für Reflexion.
   hindert uns, etwas abzuschließen, bevor wir Neues beginnen?*
 - **⛔ blockiert** heißt: Die Karte wartet auf eine andere Aufgabe oder hängt fest.
   Holt euch Hilfe!
+
+### Definition of Done, Kennzahlen, Retrospektive, Vorlagen
+
+- **Definition of Done:** In den Einstellungen einer Spalte (⚙) die Kriterien eintragen,
+  z. B. für „Erledigt“: *In der Doku festgehalten*, *Material aufgeräumt*. Wer eine Karte
+  dorthin verschiebt, hakt im Dialog ab, was erfüllt ist. Verschieben geht auch, wenn
+  nicht alles erfüllt ist – das Protokoll hält fest, wie viele Punkte bestätigt wurden.
+- **Kennzahlen** (Umschalter *Board / Kennzahlen / Retrospektive*):
+  *Durchlaufzeit* = vom Anlegen bis „Erledigt“, *Bearbeitungszeit* = vom ersten „In Arbeit“
+  bis „Erledigt“ (jeweils Median und Mittelwert), *Durchsatz* = erledigte Karten je Woche,
+  *Blockadedauer*, *WIP-Überschreitungen* und das **Cumulative Flow Diagram**: Wird das
+  Band „In Arbeit“ breiter, beginnt die Gruppe mehr, als sie abschließt; ein flaches
+  Band „Erledigt“ zeigt einen Stau. Gerechnet wird mit den Status-Kategorien, nicht mit
+  einzelnen Spalten; Karten aus der Zeit vor dem Prozess-Modus zählen ab dessen Beginn,
+  bei wieder geöffneten Karten zählt die letzte Fertigstellung.
+- **Retrospektive:** „+ Neue Retrospektive“ friert die aktuellen Kennzahlen ein und
+  stellt vier Leitfragen (Was lief gut? Wo gab es Engpässe? Was ändern wir? Wer übernimmt
+  was bis wann?). Die Antworten stehen in der Datei; Export als Markdown.
+- **Vorlagen:** Unter **Neu** im Abschnitt „Projekt mit Kanban-Board“: *Einfaches
+  Kanban*, *NwT-Projekt 8 Wochen* (mit Test-Spalte, WIP-Limits, Definition of Done und
+  vier Meilensteinen ab der aktuellen Woche) und *Projekt mit Review*. Im Kanban ersetzt
+  **Vorlage …** nur die Spalten eines vorhandenen Boards; dort lässt sich das aktuelle
+  Board auch als **eigene Vorlage** speichern (im Browser dieses Geräts).
 
 ### Spalte und Status
 

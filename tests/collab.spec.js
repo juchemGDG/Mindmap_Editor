@@ -87,6 +87,22 @@ for (const [name, base] of [['PHP', PHP], ['Flask', FLASK]]) {
     } finally { await s.close(); }
   });
 
+  test(`Zusammenarbeit (${name}): Retrospektive – beide schreiben gleichzeitig an verschiedenen Fragen`, async ({ browser }) => {
+    const s = await twoInSession(browser, base, { process: true });
+    try {
+      const id = await s.a.evaluate(() => createRetro());
+      await expect.poll(() => s.b.evaluate(id => !!doc.retros[id], id), { timeout: 8000 }).toBe(true);
+      await Promise.all([
+        s.a.evaluate(id => mutate('Retro', () => { doc.retros[id].q1 = 'Gut: Zusammenarbeit'; }), id),
+        s.b.evaluate(id => mutate('Retro', () => { doc.retros[id].q3 = 'Ändern: kleinere Karten'; }), id),
+      ]);
+      for (const p of [s.a, s.b]) {
+        await expect.poll(() => p.evaluate(id => [doc.retros[id].q1, doc.retros[id].q3].join(' | '), id), { timeout: 8000 })
+          .toBe('Gut: Zusammenarbeit | Ändern: kleinere Karten');
+      }
+    } finally { await s.close(); }
+  });
+
   test(`Zusammenarbeit (${name}): Nur-Ansehen-Link kann nichts ändern`, async ({ browser }) => {
     const s = await twoInSession(browser, base);
     try {

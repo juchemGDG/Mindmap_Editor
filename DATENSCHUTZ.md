@@ -31,6 +31,7 @@ deshalb nicht als alleinige Grundlage für eine Note dienen.
 | Inhalte der Mindmap | Ideen, Notizen, Bilder, Links | nur wenn jemand Persönliches hineinschreibt |
 | Zuständige / Mitglieder | `AB`, `Lena` | ja – darum **nur Kürzel oder Spitzname**, kein Klarname nötig, kein E-Mail-Feld |
 | Aufgaben | Status, Termine, Priorität, Aufwand, Tags | über die Zuständigen |
+| Retrospektiven (nur Modus „Prozess“) | Antworten der Gruppe auf die Leitfragen | nur wenn jemand Namen hineinschreibt – Hinweis in der App: keine Bewertungen einzelner Personen |
 | Protokoll (nur Modus „Prozess“) | „14:05 AB: Karte ‚Platine löten‘ verschoben: In Arbeit → Review“ | ja, mit **Bewertungsbezug** – abschaltbar („personenbezogen führen: aus“) |
 | Punkte (Dot-Voting) | wer wie viele Punkte vergeben hat | ja (zufällige Geräte-ID und ggf. Kürzel) |
 | Anwesenheit in einer Sitzung | Kürzel, Farbe, markierter Punkt | ja, nur während der Sitzung |
@@ -74,7 +75,8 @@ Schülerinnen und Schüler (in der Regel minderjährig) und Lehrkräfte.
 - **Keine Cookies.** `localStorage` enthält nur das Dokument und Einstellungen
   (`mm-autosave` = eigene Mindmap, `mm-session-copy` = Kopie der letzten gemeinsamen
   Sitzung, `mm-name`, `mm-client-id`, `mm-color`, `mm-theme`, `mm-view`,
-  `mm-inspector`, `mm-grid`, `mm-kanban-compact`, `mm-kanban-notice`).
+  `mm-inspector`, `mm-grid`, `mm-kanban-compact`, `mm-kanban-notice`, `mm-kanban-pane`,
+  `mm-board-templates` = eigene Board-Vorlagen ohne Karten und Personen).
 
 ## 5. Wie lange? (Speicherdauer und Löschung)
 

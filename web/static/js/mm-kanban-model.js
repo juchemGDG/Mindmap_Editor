@@ -236,14 +236,31 @@ function createBoard(cols) {
   }
 }
 
-function moveCard(id, colId) {
+/**
+ * Karte in eine Spalte verschieben. opts.dod = {checked, total}: die Definition of Done
+ * der Zielspalte wurde im Dialog bestätigt (wird protokolliert).
+ */
+function moveCard(id, colId, opts) {
   const n = doc.nodes[id], col = doc.columns[colId];
   if (!n || !col) return false;
   const was = columnFor(n);
   if (was && was.id === colId && (col.statusKey !== 'idea' || !n.task)) return false;
-  const ok = mutate(`Karte nach „${col.title}“`, () => { doc.nodes[id].columnId = colId; });
+  const events = [];
+  if (opts && opts.dod) {
+    events.push({ type: 'dod.confirmed', task: id, title: label(id), col: colId,
+      to: `${col.title}: ${opts.dod.checked} von ${opts.dod.total} Kriterien bestätigt` });
+  }
+  const ok = mutate(`Karte nach „${col.title}“`, () => { doc.nodes[id].columnId = colId; }, events.length ? { events } : undefined);
   if (ok) wipWarn(col);
   return ok;
+}
+
+/** Braucht das Verschieben dieser Karte in diese Spalte eine Bestätigung der Definition of Done? */
+function needsDod(id, colId) {
+  const n = doc.nodes[id], col = doc.columns[colId];
+  if (!n || !col || !Array.isArray(col.dod) || !col.dod.length) return false;
+  const was = columnFor(n);
+  return !(was && was.id === colId);
 }
 
 /** Neue Karte: legt wie bisher einen Aufgaben-Knoten im gewählten Ast an. */
@@ -336,6 +353,121 @@ function wipWarn(col) {
 }
 
 // ════════════════════════════════════════════════════════════════════
+// Board-Vorlagen (Spalten mit WIP-Limit und Definition of Done, Meilensteine)
+// Dieselben Vorlagen erscheinen unter „Neu“ (mit Mindmap, siehe TEMPLATES in
+// mm-io.js) und im Kanban unter „Vorlage …“ (nur das Board).
+// ════════════════════════════════════════════════════════════════════
+const BOARD_TEMPLATES = [
+  { key: 'simple', title: 'Einfaches Kanban', desc: 'Offen / In Arbeit / Erledigt mit WIP-Limit 3', columns: [
+    { title: 'Offen', statusKey: 'todo' },
+    { title: 'In Arbeit', statusKey: 'doing', wip: 3 },
+    { title: 'Erledigt', statusKey: 'done' },
+  ] },
+  { key: 'nwt8', title: 'NwT-Projekt 8 Wochen', desc: 'Backlog bis Erledigt, Test-Spalte, Definition of Done, 4 Meilensteine', columns: [
+    { title: 'Backlog', statusKey: 'todo' },
+    { title: 'Diese Woche', statusKey: 'todo', wip: 6 },
+    { title: 'In Arbeit', statusKey: 'doing', wip: 3 },
+    { title: 'Test', statusKey: 'doing', wip: 2, dod: ['Funktion ausprobiert und Ergebnis notiert', 'Fehler und Verbesserungen als neue Karte angelegt'] },
+    { title: 'Erledigt', statusKey: 'done', dod: ['Im Lerntagebuch / in der Doku festgehalten (mit Foto)', 'Material und Werkzeug aufgeräumt', 'Gruppe informiert'] },
+  ], milestones: [
+    { text: 'Projektskizze abgeben', week: 2 },
+    { text: 'Zwischenpräsentation', week: 4 },
+    { text: 'Funktionstest bestanden', week: 7 },
+    { text: 'Abschlusspräsentation', week: 8 },
+  ] },
+  { key: 'review', title: 'Projekt mit Review', desc: 'Jede Karte wird von einer anderen Person geprüft', columns: [
+    { title: 'Backlog', statusKey: 'todo' },
+    { title: 'In Arbeit', statusKey: 'doing', wip: 3 },
+    { title: 'Review', statusKey: 'doing', wip: 2, dod: ['Von einer anderen Person geprüft', 'Rückmeldung eingearbeitet'] },
+    { title: 'Erledigt', statusKey: 'done', dod: ['Review bestanden'] },
+  ] },
+];
+
+/** Eigene Vorlagen liegen im Browser (Einstellung dieses Geräts). */
+function ownBoardTemplates() {
+  try { return (JSON.parse(localStorage.getItem('mm-board-templates') || '[]') || []).filter(t => t && Array.isArray(t.columns)); } catch (e) { return []; }
+}
+function saveOwnBoardTemplates(list) {
+  try { localStorage.setItem('mm-board-templates', JSON.stringify(list.slice(-30))); return true; } catch (e) { return false; }
+}
+/** Das aktuelle Board als Vorlage (ohne Karten, ohne Personen). */
+function boardFromCurrent(title) {
+  return {
+    key: 'own-' + Date.now().toString(36), title: String(title || 'Eigene Vorlage').slice(0, 60), own: true,
+    desc: boardColumns().map(c => c.title).join(' / '),
+    columns: boardColumns().map(c => Object.assign({ title: c.title, statusKey: c.statusKey },
+      c.wip ? { wip: c.wip } : {}, c.color ? { color: c.color } : {}, Array.isArray(c.dod) && c.dod.length ? { dod: c.dod.slice() } : {})),
+  };
+}
+function boardTemplateByKey(key) { return BOARD_TEMPLATES.concat(ownBoardTemplates()).find(t => t.key === key) || null; }
+
+/** Montag dieser Woche (bzw. heute, wenn heute Montag ist) – Start für Meilensteine. */
+function weekStart(iso) {
+  const d = parseDate(iso || todayISO());
+  return addDays(fmtISO(d), -((d.getDay() + 6) % 7));
+}
+
+/**
+ * Board-Vorlage auf die aktuelle Mindmap anwenden (innerhalb von mutate):
+ * Spalten ersetzen, Karten in die erste Spalte ihrer Kategorie, optional Meilensteine.
+ */
+function boardTemplateInto(tpl, withMilestones) {
+  M().kanbanMode = 'process';
+  if (!M().kanbanId) M().kanbanId = uid('b');
+  for (const id in doc.columns) delete doc.columns[id];
+  for (const id in doc.nodes) if (!doc.nodes[id].task) delete doc.nodes[id].columnId;
+  createBoard(tpl.columns);
+  for (const name of knownOwners()) ensureMember(name);
+  if (withMilestones && tpl.milestones && tpl.milestones.length) {
+    const start = M().projectStart || weekStart();
+    M().projectStart = start;
+    const rid = index().rid;
+    let branch = kids(rid).find(k => label(k) === 'Meilensteine');
+    if (!branch) branch = createChild(rid, 'Meilensteine');
+    for (const m of tpl.milestones) {
+      const due = addDays(start, (m.week - 1) * 7 + 4);      // Freitag der Woche
+      createChild(branch, m.text, null, { task: true, status: 'todo', ms: true, start: due, due, columnId: columnsOfStatus('todo')[0].id });
+    }
+  }
+}
+
+function applyBoardTemplate(key, withMilestones) {
+  const tpl = boardTemplateByKey(key);
+  if (!tpl) return false;
+  return mutate('Board-Vorlage', () => boardTemplateInto(tpl, withMilestones), { noDerive: true, events: [{ type: 'board.template', to: tpl.title }] });
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Retrospektiven (doc.retros) – Antworten der Gruppe, je Frage ein eigenes
+// Feld, damit zwei Personen gleichzeitig an verschiedenen Fragen schreiben können
+// ════════════════════════════════════════════════════════════════════
+const RETRO_QUESTIONS = [
+  { key: 'q1', text: 'Was lief gut?', hint: 'Worauf seid ihr stolz? Was hat geholfen?' },
+  { key: 'q2', text: 'Wo gab es Engpässe oder Blockaden?', hint: 'Schaut auf die Kennzahlen: Wo haben Karten lange gelegen? Wann war das WIP-Limit überschritten?' },
+  { key: 'q3', text: 'Was ändern wir beim nächsten Mal?', hint: 'Spalten, WIP-Limits, Absprachen, Arbeitsweise …' },
+  { key: 'q4', text: 'Wer übernimmt was bis wann?', hint: 'Konkrete Vereinbarungen mit Kürzel und Termin' },
+];
+function retroList() { return Object.values(doc.retros || {}).sort((a, b) => (b.created || 0) - (a.created || 0)); }
+function createRetro() {
+  let id = null;
+  mutate('Retrospektive', () => {
+    id = uid('r');
+    const now = nowSynced();
+    doc.retros[id] = { id, created: now, title: 'Retrospektive vom ' + new Date(now).toLocaleDateString('de-DE'), snapshot: metricsSummary(computeMetrics(doc, now)) };
+  });
+  return id;
+}
+function retroMarkdown(r) {
+  const s = r.snapshot || {};
+  const lines = [`# ${r.title || 'Retrospektive'}`, '', `Board: ${M().title || label(index().rid)}`, ''];
+  lines.push('## Kennzahlen (Stand der Retrospektive)', '');
+  for (const row of summaryRows(s)) lines.push(`- ${row[0]}: ${row[1]}`);
+  lines.push('');
+  for (const q of RETRO_QUESTIONS) lines.push(`## ${q.text}`, '', (r[q.key] || '').trim() || '_(keine Antwort)_', '');
+  return lines.join('\n');
+}
+
+// ════════════════════════════════════════════════════════════════════
 // Protokoll
 // ════════════════════════════════════════════════════════════════════
 const AUDIT_FIELDS = {
@@ -360,6 +492,7 @@ const EVENT_TYPES = {
   'wip.exceeded':    'WIP-Limit überschritten',
   'dod.confirmed':   'Definition of Done bestätigt',
   'member.added':    'Mitglied hinzugefügt',
+  'board.template':  'Board-Vorlage übernommen',
 };
 const COLUMN_FIELDS = { color: 'Farbe', wip: 'WIP-Limit', statusKey: 'Kategorie', dod: 'Definition of Done' };
 
@@ -369,7 +502,13 @@ let pendingTimer = null;
 
 function personal() { return M().kanbanPersonal !== false; }
 
-function newEventId() { return 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+// Kennung: Zeit + laufende Nummer + Zufall. Die laufende Nummer hält Einträge aus
+// derselben Millisekunde in der richtigen Reihenfolge (z. B. „verschoben“ vor „DoD bestätigt“).
+let eventSeq = 0;
+function newEventId() {
+  eventSeq = (eventSeq + 1) % 1296;
+  return 'e' + Date.now().toString(36) + eventSeq.toString(36).padStart(2, '0') + Math.random().toString(36).slice(2, 8);
+}
 
 /** Eintrag anlegen (innerhalb von mutate). Personen nur, wenn „personenbezogen“ eingeschaltet ist. */
 function addEvent(e, t) {
@@ -422,27 +561,31 @@ function deriveNodeEvents(before, evs, info) {
     if (!bt && !at) {
       // Ideen: nur das Verschieben zwischen Ideen-Spalten ist kanbanbezogen
       if (a && b && a.columnId !== b.columnId && aCols[a.columnId]) {
-        evs.push({ type: 'task.moved', task: id, title: label(id), from: colTitle(bCols, b.columnId), to: colTitle(aCols, a.columnId), toCol: a.columnId });
+        evs.push({ type: 'task.moved', task: id, title: label(id), from: colTitle(bCols, b.columnId), to: colTitle(aCols, a.columnId), toCol: a.columnId, fromCat: 'idea', toCat: 'idea' });
       }
       continue;
     }
+    // fromCat/toCat: Status-Kategorie vorher/nachher – damit die Kennzahlen auch
+    // stimmen, wenn Spalten später umbenannt oder gelöscht werden
     const title = a ? (a.text || '').slice(0, 60) : (b.text || '').slice(0, 60);
     if (!bt && at) {
-      evs.push({ type: 'task.created', task: id, title, to: colTitle(aCols, a.columnId) || statusLabel(cardCategory(a)), toCol: a.columnId });
+      evs.push({ type: 'task.created', task: id, title, to: colTitle(aCols, a.columnId) || statusLabel(cardCategory(a)), toCol: a.columnId, toCat: cardCategory(a) });
       continue;
     }
-    if (bt && !a) { evs.push({ type: 'task.deleted', task: id, title, from: colTitle(bCols, b.columnId) || statusLabel(cardCategory(b)) }); continue; }
+    if (bt && !a) { evs.push({ type: 'task.deleted', task: id, title, from: colTitle(bCols, b.columnId) || statusLabel(cardCategory(b)), fromCat: cardCategory(b) }); continue; }
     if (bt && !at) {
       // keine Aufgabe mehr: in eine Ideen-Spalte gezogen oder im Eigenschaften-Feld ausgeschaltet
       evs.push({ type: 'task.moved', task: id, title, from: colTitle(bCols, b.columnId) || statusLabel(cardCategory(b)),
-        to: colTitle(aCols, a.columnId) || statusLabel('idea'), toCol: a.columnId && aCols[a.columnId] ? a.columnId : undefined });
+        to: colTitle(aCols, a.columnId) || statusLabel('idea'), toCol: a.columnId && aCols[a.columnId] ? a.columnId : undefined,
+        fromCat: cardCategory(b), toCat: 'idea' });
       continue;
     }
     // beides Aufgabe: hat sich die angezeigte Spalte oder der Status geändert?
     const bc = shownColumnId(bCols, b), ac = shownColumnId(aCols, a);
     if (cardCategory(a) !== cardCategory(b) || (ac && bc !== ac)) {
       evs.push({ type: 'task.moved', task: id, title, from: colTitle(bCols, bc) || statusLabel(cardCategory(b)),
-        to: colTitle(aCols, ac) || statusLabel(cardCategory(a)), fromCol: bc || undefined, toCol: ac || undefined });
+        to: colTitle(aCols, ac) || statusLabel(cardCategory(a)), fromCol: bc || undefined, toCol: ac || undefined,
+        fromCat: cardCategory(b), toCat: cardCategory(a) });
       const col = aCols[ac];
       if (col && col.wip) {
         const count = wipCount(col.id);

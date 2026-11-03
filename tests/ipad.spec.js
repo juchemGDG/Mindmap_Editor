@@ -62,3 +62,34 @@ test('iPad: Prozess-Board (5 Spalten, 10 Karten) komplett per Touch', async ({ p
   await expect(page.locator('[data-row="t1"]')).toBeVisible();
   expect(page.errors).toEqual([]);
 });
+
+// Etappe 2 per Touch: Definition of Done, Kennzahlen, Retrospektive
+test('iPad: DoD-Dialog, Kennzahlen und Retrospektive per Touch', async ({ page }) => {
+  await openApp(page, null, { doc: tenCardDoc() });
+  await page.evaluate(() => {
+    localStorage.setItem('mm-name', 'AB'); setKanbanMode('process'); markNoticeSeen();
+    const c = boardColumns().find(x => x.title === 'Geplant'); updateColumn(c.id, { dod: ['Aufgabe ist klar beschrieben'] });
+  });
+  await showView(page, 'kanban');
+  const tap = async sel => { const l = page.locator(sel).first(); await l.scrollIntoViewIfNeeded(); await touchTap(page, await center(l)); };
+  const geplant = await colId(page, 'Geplant');
+  await touchDrag(page, await center(page.locator('[data-pcard="t1"]')), await center(page.locator(`.kpcol[data-colid="${geplant}"] .kp-title`)));
+  await expect(page.locator('[data-dodi]')).toHaveCount(1);
+  await tap('label:has([data-dodi="0"])');
+  await tap('[data-kd="dod-ok"]');
+  expect(await page.evaluate(() => auditList().find(e => e.type === 'dod.confirmed'))).toMatchObject({ task: 't1', to: 'Geplant: 1 von 1 Kriterien bestätigt' });
+  // Kennzahlen: Antippen des Diagramms zeigt die Werte
+  await page.evaluate(() => moveCard('t2', boardColumns()[4].id));
+  await tap('[data-kpane="metrics"]');
+  await expect(page.locator('[data-chart="cfd"] polygon')).toHaveCount(3);
+  await tap('[data-chart="cfd"] .kp-hit');
+  await expect(page.locator('#kp-tip')).toBeVisible();
+  await expect(page.locator('#kp-tip')).toContainText('Erledigt');
+  // Retrospektive
+  await tap('[data-kpane="retro"]');
+  await tap('[data-kr="new"]');
+  await page.fill('[data-rq="q2"]', 'Review hat gestaut');
+  await tap('[data-kpane="board"]');
+  expect(await page.evaluate(() => Object.values(doc.retros)[0].q2)).toBe('Review hat gestaut');
+  expect(page.errors).toEqual([]);
+});

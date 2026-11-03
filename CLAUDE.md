@@ -59,7 +59,9 @@ hält das Verhalten von 1.0.0 fest.
 | `js/mm-views.js` | Gliederung, Kanban (Modus *einfach*), Zeitplan/Gantt |
 | `js/mm-markdown.js` | sicheres Markdown (maskiert zuerst, keine Bilder/HTML) |
 | `js/mm-kanban-model.js` | Kanban-Prozess: Spalten, Abgleich, Protokoll, Datenschutz-Funktionen |
-| `js/mm-kanban.js` | Kanban-Prozess: Board, Karteneditor, Dialoge |
+| `js/mm-kanban.js` | Kanban-Prozess: Board, Karteneditor, Dialoge (DoD, Vorlagen, Protokoll …) |
+| `js/mm-metrics.js` | Kennzahlen aus dem Protokoll – reine Rechnung `computeMetrics(src, now)` |
+| `js/mm-kanban-insights.js` | Bereiche „Kennzahlen“ (SVG-Diagramme) und „Retrospektive“ |
 | `js/mm-check.js` | Prüfregeln M/P/K, „Zum Plan machen“ |
 | `js/mm-io.js` | Speichern/Laden, Import/Export, Vorlagen, Einbettung, Desktop-Brücke |
 | `js/mm-collab.js` | gemeinsames Bearbeiten (Client) |
@@ -73,10 +75,10 @@ berichten und auf Freigabe warten.
 - [x] **Etappe 1** – Kern: Modus-Schalter, konfigurierbare Spalten, Spalte ↔ Status,
       Karteneditor, Tags, kompakt/voll, Blocker, WIP + K01–K03, Protokoll, Mitglieder,
       Datenschutz 6a (Punkte 1–11), Tests.
-- [ ] **Etappe 2** – Definition of Done je Spalte (Feld `dod` ist vorbereitet, Ereignis
-      `dod.confirmed` ist definiert), Kennzahlen aus dem Protokoll (Lead/Cycle Time,
-      Cumulative Flow, Durchsatz, Blockadedauer) als schlankes SVG, Retrospektive,
-      Board-Vorlagen (bestehenden Vorlagenmechanismus `TEMPLATES` in mm-io.js nutzen).
+- [x] **Etappe 2** – Definition of Done je Spalte, Kennzahlen aus dem Protokoll
+      (Lead/Cycle Time, Cumulative Flow, Durchsatz, Blockadedauer) als schlankes SVG,
+      Retrospektive (`retros`), Board-Vorlagen (über `TEMPLATES` in mm-io.js +
+      `BOARD_TEMPLATES` in mm-kanban-model.js, eigene Vorlagen im Browser).
 - [ ] **Etappe 3** – Bewertungskriterien, Gruppenübersicht (mehrere Dateien, nur lokal),
       Bericht als Markdown und Druckansicht A4.
 
@@ -103,6 +105,11 @@ Cloud, Verschlüsselung, Chat. Anbindung an die PHP-Webapp „Projektmanagement�
   sie schon protokolliert.
 - **Server:** `events` nur als `put` neuer IDs (kein `set`/`del`, keine Doppel).
   „Projekt abschließen“ (anonymisieren/löschen) geht deshalb nur außerhalb einer Sitzung.
+- **Kennzahlen** rechnen mit Kategorien aus `fromCat`/`toCat` der Einträge (ältere
+  Einträge: über `toCol` bzw. Beschriftung). Diagrammfarben sind CSS-Variablen
+  `--viz-done/doing/todo` (mit dem Dataviz-Prüfer validiert – bei Änderung neu prüfen).
+- **Definition of Done:** `kpMoveCard()` (Oberfläche) fragt bei Spalten mit `dod` erst nach;
+  `moveCard()` (Logik, Tests) verschiebt direkt.
 - Neue Regel: `checkKxx()` in mm-check.js, Aufruf in `evaluateMap()`, Eintrag in `RULES`,
   in README-Tabelle aufnehmen.
 

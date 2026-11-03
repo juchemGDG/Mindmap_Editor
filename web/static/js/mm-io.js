@@ -433,11 +433,30 @@ const TEMPLATES = [
   { key: 'talk', title: 'Referat / Präsentation', desc: 'Vom Thema bis zur Generalprobe', root: 'Referat', tree: [
     ['Thema eingrenzen', ['Leitfrage']], ['Recherche', ['Quellen']], ['Gliederung', ['Einleitung', 'Hauptteil', 'Schluss']],
     ['Folien & Medien', []], ['Proben', []]] },
+  // Projekt mit Kanban-Board (Prozess-Modus): board = Schlüssel in BOARD_TEMPLATES (mm-kanban-model.js),
+  // tasks = Endpunkte sind gleich Aufgaben
+  { key: 'kb-simple', board: 'simple', tasks: true, title: 'Einfaches Kanban', desc: 'Aufgaben auf einem Board: Offen / In Arbeit / Erledigt', root: 'Projekt', tree: [
+    ['Aufgaben', ['Erste Aufgabe', 'Zweite Aufgabe', 'Dritte Aufgabe']]] },
+  { key: 'kb-nwt8', board: 'nwt8', tasks: true, milestones: true, title: 'NwT-Projekt 8 Wochen', desc: 'Board mit Test-Spalte, WIP-Limits, Definition of Done und 4 Meilensteinen', root: 'NwT-Projekt', tree: [
+    ['Ziel & Anforderungen', ['Was soll das Produkt können?', 'Anforderungsliste schreiben']],
+    ['Recherche', ['Ähnliche Lösungen suchen', 'Bauteile und Material klären']],
+    ['Konstruktion & Planung', ['Skizze / Schaltplan', 'Materialliste']],
+    ['Bau & Programmierung', ['Prototyp bauen', 'Programm schreiben']],
+    ['Test & Optimierung', ['Testplan', 'Verbesserungen umsetzen']],
+    ['Dokumentation & Präsentation', ['Lerntagebuch führen', 'Präsentation vorbereiten']]] },
+  { key: 'kb-review', board: 'review', tasks: true, title: 'Projekt mit Review', desc: 'Jede Karte wird vor „Erledigt“ von jemand anderem geprüft', root: 'Projekt', tree: [
+    ['Planung', ['Ziel festlegen', 'Aufgaben verteilen']], ['Umsetzung', ['Teil A', 'Teil B']], ['Abschluss', ['Ergebnis vorstellen']]] },
 ];
 
 function templateDoc(t) {
   const items = t.tree.map(x => Array.isArray(x) ? { text: x[0], children: x[1].map(s => ({ text: s })) } : { text: x });
   const d = treeToDoc(t.root, items);
+  if (t.tasks) {
+    // Endpunkte werden Aufgaben (offen)
+    const hasKids = new Set(Object.values(d.nodes).map(n => n.parent).filter(Boolean));
+    for (const id in d.nodes) if (d.nodes[id].parent && !hasKids.has(id)) Object.assign(d.nodes[id], { task: true, status: 'todo' });
+    d.meta.m.phase = 'plan';
+  }
   return d;
 }
 
@@ -445,8 +464,13 @@ function showTemplates() {
   const box = $('template-modal');
   const list = $('template-list');
   if (!box || !list) return;
-  list.innerHTML = TEMPLATES.map(t => `<button type="button" class="tpl" data-tpl="${t.key}"><b>${esc(t.title)}</b><span>${esc(t.desc)}</span></button>`).join('')
-    + `<button type="button" class="tpl tpl-text" data-tpl="__text"><b>Aus Text erstellen …</b><span>Liste einfügen – Einrückung wird zur Struktur</span></button>`;
+  const btn = t => `<button type="button" class="tpl" data-tpl="${esc(t.key)}"><b>${esc(t.title)}</b><span>${esc(t.desc)}</span></button>`;
+  const own = typeof ownBoardTemplates === 'function' ? ownBoardTemplates() : [];
+  list.innerHTML = TEMPLATES.filter(t => !t.board).map(btn).join('')
+    + `<button type="button" class="tpl tpl-text" data-tpl="__text"><b>Aus Text erstellen …</b><span>Liste einfügen – Einrückung wird zur Struktur</span></button>`
+    + `<div class="tpl-group">Projekt mit Kanban-Board</div>`
+    + TEMPLATES.filter(t => t.board).map(btn).join('')
+    + own.map(t => btn({ key: 'own:' + t.key, title: t.title, desc: 'eigene Vorlage · ' + (t.desc || '') })).join('');
   box.style.display = 'flex';
 }
 
@@ -462,13 +486,21 @@ function chooseTemplate(key) {
     }, true, true);
     return;
   }
-  const t = TEMPLATES.find(x => x.key === key);
+  // eigene Board-Vorlage: leere Mindmap mit diesem Board
+  const own = key.startsWith('own:') ? boardTemplateByKey(key.slice(4)) : null;
+  const t = own ? { key, board: own.key, root: 'Projekt', tree: [], title: own.title } : TEMPLATES.find(x => x.key === key);
   if (!t || !confirmDiscard()) return;
   leaveRoomSilently();
   replaceDoc(templateDoc(t));
+  if (t.board) {
+    // Board anlegen – gehört zur Vorlage, darum ohne Rückgängig-Schritt
+    const tpl = boardTemplateByKey(t.board);
+    mutate('Vorlage', () => boardTemplateInto(tpl, !!t.milestones), { noUndo: true, noDerive: true, events: [{ type: 'board.template', to: tpl.title }] });
+  }
   afterDocLoaded();
   setDirty(false);
   selectOne(index().rid);
+  if (t.board) switchView('kanban');
   if (key === 'empty' || key === 'ws') setTimeout(() => startEdit(index().rid), 80);
 }
 

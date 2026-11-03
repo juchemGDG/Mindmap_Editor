@@ -47,5 +47,29 @@ Neu ist der Schalter **Kanban-Modus: einfach / Prozess**. Im Modus *einfach*
 - **Browsertests** mit Playwright (vorher gab es keine): Verhalten von 1.0.0, Kanban,
   Protokoll, Touch, Zusammenarbeit gegen PHP und Flask, Datenschutz.
 
+### Etappe 2: Prozess sichtbar machen
+
+- **Definition of Done** je Spalte (in den Spalteneinstellungen, ein Punkt pro Zeile).
+  Beim Verschieben in die Spalte – per Ziehen, Menü, Tastatur oder Karteneditor –
+  erscheint ein Dialog zum Abhaken; abbrechbar, kein hartes Sperren. Die Bestätigung
+  („2 von 3 Kriterien“) steht im Protokoll.
+- **Kennzahlen** (Kanban › Kennzahlen), berechnet aus dem Protokoll: Durchlaufzeit und
+  Bearbeitungszeit je Karte mit Median und Mittelwert, **Cumulative Flow Diagram**,
+  Durchsatz je Kalenderwoche, Blockadedauer, WIP-Überschreitungen. Schlankes SVG ohne
+  Bibliothek, Werte beim Zeigen, Tippen und per Tastatur, jedes Diagramm auch als
+  Tabelle; Farben auf Farbsehschwäche geprüft, im schwarz-weißen Design Graustufen.
+- **Retrospektive** (Kanban › Retrospektive): friert die Kennzahlen ein, vier Leitfragen,
+  Antworten in der Datei (neue Sammlung `retros`), Export als Markdown. Mehrere
+  Retrospektiven je Board; gleichzeitiges Schreiben an verschiedenen Fragen geht.
+- **Board-Vorlagen** über den vorhandenen Vorlagen-Dialog („Neu“): „Einfaches Kanban“,
+  „NwT-Projekt 8 Wochen“ (Spalten, WIP-Limits, Definition of Done, 4 Meilensteine,
+  Aufgaben im Backlog) und „Projekt mit Review“. Im Kanban unter „Vorlage …“ auf ein
+  vorhandenes Board anwendbar (Karten bleiben erhalten). Eigene Vorlage aus dem
+  aktuellen Board speichern (im Browser).
+- Protokolleinträge speichern jetzt die Status-Kategorie (`fromCat`/`toCat`), damit die
+  Kennzahlen auch nach dem Umbenennen oder Löschen von Spalten stimmen. Ältere Einträge
+  werden über Spalte bzw. Beschriftung zugeordnet.
+- Desktop-Version: Der Download-Dialog zeigt nur Dateien, die es wirklich gibt.
+
 ### Behobene Fehler
 - „Wiederholen“-Knopf blieb nach „Rückgängig“ gesperrt (per Tastatur ging es).

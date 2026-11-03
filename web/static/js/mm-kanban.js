@@ -48,7 +48,17 @@ function renderKanbanProcess() {
   if (!host) return;
   // Fokus merken, damit Tastaturbedienung nach dem Neuzeichnen weitergeht
   const act = document.activeElement;
+  // Wer gerade eine Retrospektive schreibt, wird nicht unterbrochen (neu gezeichnet wird beim Verlassen des Feldes)
+  if (kpPane === 'retro' && act && host.contains(act) && act.matches('[data-rq], [data-rtitle]')) return;
   const keep = act && host.contains(act) ? (act.dataset.pcard ? { card: act.dataset.pcard } : act.dataset.cgrip ? { grip: act.dataset.cgrip } : null) : null;
+
+  if (kpPane !== 'board') {
+    host.innerHTML = `<div class="view-head"><h2>Kanban</h2><div class="view-tools">${kanbanModeSwitch()}${paneSwitch()}
+        <button type="button" class="btn-small" data-ka="log">Protokoll</button></div></div><div class="kp-pane"></div>`;
+    renderInsightPane(host.querySelector('.kp-pane'));
+    maybeShowNotice();
+    return;
+  }
 
   const cols = boardColumns();
   const cards = boardCards();
@@ -61,7 +71,7 @@ function renderKanbanProcess() {
 
   const head = `<div class="view-head"><h2>Kanban</h2>
     <div class="view-tools">
-      ${kanbanModeSwitch()}
+      ${kanbanModeSwitch()}${paneSwitch()}
       <label>Ast <select data-kp="branch"><option value="">alle</option>${branches.map(b => `<option value="${esc(b)}"${kpFilter.branch === b ? ' selected' : ''}>${esc(label(b))}</option>`).join('')}</select></label>
       <label>Zuständig <select data-kp="owner"><option value="">alle</option><option value="-"${kpFilter.owner === '-' ? ' selected' : ''}>niemand</option>${members.map(o => `<option${kpFilter.owner === o ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></label>
       ${ro ? '' : `<label class="kp-me${!me && personal() ? ' missing' : ''}">Ich bin <select data-kp="me" aria-label="Wer arbeitet gerade an diesem Gerät?"><option value="">– wählen –</option>${[...new Set([...members, me].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de')).map(o => `<option${o === me ? ' selected' : ''}>${esc(o)}</option>`).join('')}<option value="__new">+ neu …</option></select></label>`}
@@ -69,7 +79,7 @@ function renderKanbanProcess() {
       <button type="button" class="btn-small" data-ka="log">Protokoll</button>
       <button type="button" class="btn-small" data-ka="members">Mitglieder</button>
       <button type="button" class="btn-small" data-ka="privacy">Datenschutz</button>
-      ${ro ? '' : '<button type="button" class="btn-small" data-ka="add-col">+ Spalte</button>'}
+      ${ro ? '' : '<button type="button" class="btn-small" data-ka="templates">Vorlage …</button><button type="button" class="btn-small" data-ka="add-col">+ Spalte</button>'}
     </div></div>
     ${tags.length ? `<div class="kp-tagbar" role="group" aria-label="Nach Tags filtern"><span>Tags:</span>${tags.map(t => `<button type="button" class="kp-tag${kpFilter.tags.includes(t) ? ' on' : ''}" data-ktag="${esc(t)}" aria-pressed="${kpFilter.tags.includes(t)}">#${esc(t)}</button>`).join('')}${kpFilter.tags.length ? '<button type="button" class="btn-link" data-ka="tags-clear">Filter aufheben</button>' : ''}</div>` : ''}
     ${!ro && !me && personal() ? '<p class="view-note kp-me-note">Bitte oben „Ich bin …“ wählen – sonst steht im Protokoll kein Name.</p>' : ''}`;
@@ -210,9 +220,10 @@ function bindKanbanProcess() {
       const cols = boardColumns();
       const cur = cols.findIndex(c => c.id === (columnFor(doc.nodes[id]) || {}).id);
       const next = cols[cur + arrows[e.key]];
-      if (next) moveCard(id, next.id);
+      if (next) kpMoveCard(id, next.id);
+      // Fokus bleibt auf der Karte – außer es hat sich ein Dialog geöffnet (Definition of Done)
       const el = host.querySelector(`[data-pcard="${CSS.escape(id)}"]`);
-      if (el) el.focus();
+      if (el && !topModal()) el.focus();
       return;
     }
     if (arrows[e.key] || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
@@ -220,6 +231,8 @@ function bindKanbanProcess() {
       focusNeighbour(card, e.key);
     }
   });
+
+  bindInsights(host);
 
   // ── Ziehen (Maus, Stift und Finger über Pointer Events) ──
   host.addEventListener('pointerdown', e => {
@@ -270,7 +283,7 @@ function bindKanbanProcess() {
     if (e.type === 'pointercancel') return;
     const col = colAt(e.clientX, e.clientY);
     if (!col) return;
-    if (d.kind === 'card') moveCard(d.id, col.dataset.colid);
+    if (d.kind === 'card') kpMoveCard(d.id, col.dataset.colid);
     else {
       // Spalte vor bzw. hinter die Zielspalte setzen
       const list = boardColumns().map(c => c.id).filter(x => x !== d.id);
@@ -324,7 +337,17 @@ function kanbanAction(act, el) {
     case 'log': openKDialog({ kind: 'log' }); break;
     case 'members': openKDialog({ kind: 'members' }); break;
     case 'privacy': openKDialog({ kind: 'privacy' }); break;
+    case 'templates': openKDialog({ kind: 'templates' }); break;
   }
+}
+
+/**
+ * Verschieben aus der Oberfläche: Hat die Zielspalte eine Definition of Done,
+ * erscheint zuerst der Bestätigungsdialog (abbrechbar, kein hartes Sperren).
+ */
+function kpMoveCard(id, colId) {
+  if (needsDod(id, colId)) { openKDialog({ kind: 'dod', id, col: colId }); return; }
+  moveCard(id, colId);
 }
 
 /** Neue Karte: Ast = Filter, sonst markierter Ast, sonst Zentralthema. Aktive Tags werden übernommen. */
@@ -336,7 +359,7 @@ function addCardPrompt(colId) {
   showPrompt('Neue Karte', `Karte in „${col.title}“ – als Aufgabe unter „${label(parent)}“${kpFilter.tags.length ? ` mit ${kpFilter.tags.map(t => '#' + t).join(' ')}` : ''}`, '', v => {
     if (!v || !v.trim()) return;
     const id = createCard(colId, v, parent, kpFilter.tags);
-    if (id) { selectOne(id); setTimeout(() => { const el = document.querySelector(`[data-pcard="${CSS.escape(id)}"]`); if (el) el.focus(); }, 30); }
+    if (id) { selectOne(id); const el = document.querySelector(`[data-pcard="${CSS.escape(id)}"]`); if (el) el.focus(); }
   });
 }
 
@@ -348,7 +371,7 @@ function openCardMenu(id, anchor) {
   const items = [
     { label: 'Karte öffnen', act: () => openCard(id), safe: true },
     { head: 'Verschieben nach' },
-    ...boardColumns().map(c => ({ label: (cur && cur.id === c.id ? '✓ ' : '') + c.title, disabled: cur && cur.id === c.id, act: () => moveCard(id, c.id) })),
+    ...boardColumns().map(c => ({ label: (cur && cur.id === c.id ? '✓ ' : '') + c.title, disabled: cur && cur.id === c.id, act: () => kpMoveCard(id, c.id) })),
     { sep: true },
     manualBlocked(n) ? { label: 'Blocker lösen', act: () => setBlocked(id, false) }
       : { label: 'Als blockiert markieren …', act: () => showPrompt('Blockiert', 'Woran hängt es? (kurze Begründung)', '', v => { if (v !== null) setBlocked(id, true, v); }) },
@@ -376,7 +399,8 @@ function openCard(id) {
   if (!sel.has(id) || sel.size > 1) { sel = new Set([id]); focusId = id; selLink = null; updateInspector(); syncOtherViewsSelection(); }
   renderCard();
   $('card-modal').style.display = 'flex';
-  setTimeout(() => { const t = $('card-box').querySelector('[data-cf="text"]'); if (t && !readOnly) t.focus(); }, 40);
+  const t = $('card-box').querySelector('[data-cf="text"]');
+  if (t && !readOnly) t.focus();
 }
 function closeCard() {
   flushAudit();
@@ -477,7 +501,7 @@ function bindCardDialog() {
   box.addEventListener('change', e => {
     const f = e.target.dataset.cf, id = kpCardId;
     if (!id) return;
-    if (f === 'column') moveCard(id, e.target.value);
+    if (f === 'column') kpMoveCard(id, e.target.value);
     else if (f === 'due' || f === 'start') nodeSet('Termin', n => { if (e.target.value) n[f] = e.target.value; else delete n[f]; if (n.ms && n.due) n.start = n.due; });
     else if (f === 'blocked') {
       if (e.target.checked) setBlocked(id, true, '');
@@ -553,13 +577,15 @@ function openKDialog(d) {
   kpDialog = d;
   renderKDialog();
   $('kanban-modal').style.display = 'flex';
-  setTimeout(() => { const el = $('kanban-box').querySelector('input, select, textarea, button.btn-primary'); if (el) el.focus(); }, 40);
+  const el = $('kanban-box').querySelector('input, select, textarea, button.btn-primary');
+  if (el) el.focus();
 }
 function closeKDialog() {
   flushAudit();
   kpDialog = null;
   const m = $('kanban-modal');
   if (m) m.style.display = 'none';
+  if (kpCardId) refreshCardDialog();     // z. B. abgebrochene DoD: Spaltenauswahl im Editor zurücksetzen
 }
 
 function renderKDialog() {
@@ -578,10 +604,35 @@ function renderKDialog() {
       ${field('Gehört zum Status', `<select data-kc="statusKey">${KANBAN_STATUS.map(s => `<option value="${s.key}"${c.statusKey === s.key ? ' selected' : ''}>${esc(s.label)}</option>`).join('')}</select>
         <p class="kp-hint">Zeitplan, Gantt, Exporte und Prüfregeln sehen nur den Status. Beispiel: „Review“ gehört zu „In Arbeit“.</p>`)}
       ${field('WIP-Limit (höchstens so viele Karten gleichzeitig, 0 = kein Limit)', `<input type="number" min="0" max="99" data-kc="wip" value="${c.wip || 0}">`)}
+      ${field('Definition of Done – wann darf eine Karte hierher? (ein Punkt pro Zeile)', `<textarea data-kc="dod" rows="3" placeholder="z. B. Funktion getestet&#10;In der Doku festgehalten">${esc((c.dod || []).join('\n'))}</textarea>
+        <p class="kp-hint">Beim Verschieben in diese Spalte erscheinen die Punkte zum Abhaken. Es wird nichts gesperrt; das Protokoll hält fest, wie viele bestätigt wurden.</p>`)}
       ${field('Farbe', `<div class="swatches" role="group" aria-label="Farbe der Spalte"><button type="button" data-kccolor="" aria-label="keine Farbe" class="${c.color ? '' : 'on'}">—</button>${NODE_COLORS.map((k, j) => `<button type="button" data-kccolor="${k}" class="${c.color === k ? 'on' : ''}" style="background:${colorValue(k)}" aria-label="Farbe ${j + 1}"></button>`).join('')}</div>`)}
       ${field('Position', `<div class="insp-row"><button type="button" class="btn-small" data-kd="left"${i <= 0 ? ' disabled' : ''}>← nach links</button><button type="button" class="btn-small" data-kd="right"${i >= cols.length - 1 ? ' disabled' : ''}>nach rechts →</button></div>`)}
       <p class="kp-msg" role="alert"></p>
       <div class="modal-buttons"><button type="button" class="btn-secondary danger" data-kd="delete">Spalte löschen …</button><button type="button" class="btn-primary" data-kd="close">Fertig</button></div>`;
+    return;
+  }
+  if (d.kind === 'dod') {
+    const c = doc.columns[d.col], n = doc.nodes[d.id];
+    if (!c || !n) { closeKDialog(); return; }
+    box.innerHTML = `<div class="modal-head"><h2>Definition of Done: „${esc(c.title)}“</h2>${x}</div>
+      <p class="modal-intro">Die Karte <b>„${esc(label(d.id))}“</b> soll nach „${esc(c.title)}“. Was davon ist erfüllt?</p>
+      <ul class="kp-check kp-dod">${c.dod.map((t, i) => `<li><label><input type="checkbox" data-dodi="${i}"> <span>${esc(t)}</span></label></li>`).join('')}</ul>
+      <p class="kp-hint">Kein Muss: Verschieben geht auch, wenn noch nicht alles erfüllt ist. Im Protokoll steht, wie viele Punkte bestätigt wurden.</p>
+      <div class="modal-buttons"><button type="button" class="btn-secondary" data-kd="close">Abbrechen</button><button type="button" class="btn-primary" data-kd="dod-ok">Verschieben</button></div>`;
+    return;
+  }
+  if (d.kind === 'templates') {
+    const own = ownBoardTemplates();
+    const item = (t, own) => `<label class="kp-tpl"><input type="radio" name="kp-tpl" value="${esc(t.key)}"> <span><b>${esc(t.title)}</b><small>${esc(t.desc || t.columns.map(c => c.title).join(' / '))}${t.milestones ? ` · ${t.milestones.length} Meilensteine` : ''}</small></span>
+      ${own ? `<button type="button" class="kp-icon" data-tpldel="${esc(t.key)}" aria-label="Vorlage ${esc(t.title)} löschen" title="Vorlage löschen">×</button>` : ''}</label>`;
+    box.innerHTML = `<div class="modal-head"><h2>Board-Vorlage</h2>${x}</div>
+      <p class="modal-intro">Eine Vorlage ersetzt die Spalten (mit WIP-Limits und Definition of Done). Die Karten bleiben erhalten und kommen in die erste Spalte ihres Status.</p>
+      <div class="kp-tpls" role="radiogroup" aria-label="Vorlagen">${BOARD_TEMPLATES.map(t => item(t, false)).join('')}
+        ${own.length ? `<div class="ctx-head">Eigene Vorlagen (auf diesem Gerät)</div>${own.map(t => item(t, true)).join('')}` : ''}</div>
+      <label class="kp-radio"><input type="checkbox" data-kv="milestones" checked> Meilensteine der Vorlage als Aufgaben ergänzen (ab dieser Woche)</label>
+      <p class="kp-msg" role="alert"></p>
+      <div class="modal-buttons"><button type="button" class="btn-secondary" data-kd="tpl-save">Aktuelles Board als Vorlage speichern …</button><button type="button" class="btn-primary" data-kd="tpl-apply">Übernehmen</button></div>`;
     return;
   }
   if (d.kind === 'delcol') {
@@ -667,6 +718,10 @@ function bindKDialog() {
     const d = kpDialog;
     if (!d) return;
     if (d.kind === 'col' && e.target.dataset.kc === 'title') msg(updateColumn(d.id, { title: e.target.value.slice(0, 40) || 'Spalte' }, 'title'));
+    if (d.kind === 'col' && e.target.dataset.kc === 'dod') {
+      const list = e.target.value.split('\n').map(t => t.trim().slice(0, 120)).filter(Boolean).slice(0, 12);
+      msg(updateColumn(d.id, { dod: list.length ? list : null }, 'dod'));
+    }
     if (d.kind === 'privacy' && e.target.dataset.kv === 'purpose') mutate('Zweck', () => { M().kanbanPurpose = e.target.value.slice(0, 300); if (!M().kanbanPurpose) delete M().kanbanPurpose; }, { merge: 'purpose' });
   });
   box.addEventListener('change', e => {
@@ -683,6 +738,12 @@ function bindKDialog() {
   box.addEventListener('click', e => {
     const d = kpDialog;
     if (!d) return;
+    const del = e.target.closest('[data-tpldel]');
+    if (del && d.kind === 'templates') {
+      e.preventDefault();
+      if (confirm('Diese eigene Vorlage löschen?')) { saveOwnBoardTemplates(ownBoardTemplates().filter(t => t.key !== del.dataset.tpldel)); renderKDialog(); }
+      return;
+    }
     const cc = e.target.closest('[data-kccolor]');
     if (cc && d.kind === 'col') { msg(updateColumn(d.id, { color: cc.dataset.kccolor || null })); renderKDialog(); return; }
     const b = e.target.closest('[data-kd]');
@@ -727,6 +788,32 @@ function bindKDialog() {
         location.replace(location.pathname);
         break;
       case 'notice-ok': markNoticeSeen(); closeKDialog(); break;
+      case 'dod-ok': {
+        const total = box.querySelectorAll('[data-dodi]').length;
+        const checked = box.querySelectorAll('[data-dodi]:checked').length;
+        const { id, col } = d;
+        closeKDialog();
+        moveCard(id, col, { dod: { checked, total } });
+        const el = document.querySelector(`[data-pcard="${CSS.escape(id)}"]`);
+        if (el && !kpCardId) el.focus();
+        break;
+      }
+      case 'tpl-apply': {
+        const sel = box.querySelector('input[name="kp-tpl"]:checked');
+        if (!sel) { msg('Bitte eine Vorlage wählen.'); break; }
+        if (boardColumns().length && !confirm('Die bisherigen Spalten werden ersetzt. Karten gehen nicht verloren. Fortfahren?')) break;
+        const ms = box.querySelector('[data-kv="milestones"]');
+        applyBoardTemplate(sel.value, !!(ms && ms.checked));
+        closeKDialog();
+        break;
+      }
+      case 'tpl-save':
+        showPrompt('Board als Vorlage speichern', 'Name der Vorlage (sie wird in diesem Browser gespeichert):', M().title || 'Meine Vorlage', v => {
+          if (!v || !v.trim()) return;
+          const ok = saveOwnBoardTemplates(ownBoardTemplates().concat([boardFromCurrent(v.trim())]));
+          if (kpDialog && kpDialog.kind === 'templates') { renderKDialog(); msg(ok ? 'Vorlage gespeichert.' : 'Speichern im Browser nicht möglich.'); }
+        });
+        break;
     }
   });
   modal.addEventListener('click', e => { if (e.target === modal && kpDialog && kpDialog.kind !== 'notice') closeKDialog(); });
