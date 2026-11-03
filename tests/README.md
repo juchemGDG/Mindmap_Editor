@@ -32,6 +32,8 @@ statisch (Port 4310), PHP (4311) und Flask (4312). Sitzungsdaten der Tests lande
 | `baseline.spec.js` | Verhalten von Version 1.0.0 (Mindmap, Kanban *einfach*, Exporte, Zeitplan, Regeln) – darf sich nicht ändern |
 | `kanban.spec.js` | Kanban-Modus „Prozess“: Migration, Spalte ↔ Status, WIP/K-Regeln, Protokoll, Karteneditor, Tastatur, Markdown |
 | `metrics.spec.js` | Etappe 2: Kennzahlen aus festem Beispielprotokoll, Definition of Done, Retrospektive, Board-Vorlagen |
+| `report.spec.js` | Etappe 3: Bewertungskriterien, Bericht (Markdown, Druck, Desktop-HTML), Gruppenübersicht |
+| `fixtures.js` | festes Beispielprotokoll (Kennzahlen von Hand nachgerechnet) |
 | `downloads.spec.js` | Dialog „Desktop-Version“ (GitHub-API nachgebildet) |
 | `ipad.spec.js` | Bedienung per Touch (iPad-Maße), u. a. Abnahme: Board mit 5 Spalten und 10 Karten |
 | `collab.spec.js` | Gemeinsames Bearbeiten gegen PHP und Flask, inkl. gemeinsames Protokoll |

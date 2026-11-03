@@ -61,7 +61,9 @@ hält das Verhalten von 1.0.0 fest.
 | `js/mm-kanban-model.js` | Kanban-Prozess: Spalten, Abgleich, Protokoll, Datenschutz-Funktionen |
 | `js/mm-kanban.js` | Kanban-Prozess: Board, Karteneditor, Dialoge (DoD, Vorlagen, Protokoll …) |
 | `js/mm-metrics.js` | Kennzahlen aus dem Protokoll – reine Rechnung `computeMetrics(src, now)` |
-| `js/mm-kanban-insights.js` | Bereiche „Kennzahlen“ (SVG-Diagramme) und „Retrospektive“ |
+| `js/mm-kanban-insights.js` | Bereiche „Kennzahlen“ (SVG-Diagramme), „Retrospektive“, „Kriterien“ |
+| `js/mm-report.js` | Bericht: `reportMarkdown()`, `reportHtml()`, `printReport()`; eigene helle CSS (`REPORT_CSS`) |
+| `js/mm-groups.js` | Gruppenübersicht: `groupSummary(src, now)` je Datei, nur im Arbeitsspeicher |
 | `js/mm-check.js` | Prüfregeln M/P/K, „Zum Plan machen“ |
 | `js/mm-io.js` | Speichern/Laden, Import/Export, Vorlagen, Einbettung, Desktop-Brücke |
 | `js/mm-collab.js` | gemeinsames Bearbeiten (Client) |
@@ -79,8 +81,9 @@ berichten und auf Freigabe warten.
       (Lead/Cycle Time, Cumulative Flow, Durchsatz, Blockadedauer) als schlankes SVG,
       Retrospektive (`retros`), Board-Vorlagen (über `TEMPLATES` in mm-io.js +
       `BOARD_TEMPLATES` in mm-kanban-model.js, eigene Vorlagen im Browser).
-- [ ] **Etappe 3** – Bewertungskriterien, Gruppenübersicht (mehrere Dateien, nur lokal),
-      Bericht als Markdown und Druckansicht A4.
+- [x] **Etappe 3** – Bewertungskriterien (`criteria`, `node.criteriaIds`), Gruppenübersicht
+      (mehrere Dateien, nur lokal, `mm-groups.js`), Bericht als Markdown und A4-Druck/PDF
+      (`mm-report.js`; PDF über den Druckdialog, Desktop: druckfertige HTML-Datei).
 
 Bewusst nicht: Sprints, Story Points, Epics, Git/Jira, Benachrichtigungen, Accounts,
 Cloud, Verschlüsselung, Chat. Anbindung an die PHP-Webapp „Projektmanagement“ nur planen.

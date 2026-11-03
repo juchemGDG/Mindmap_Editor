@@ -103,6 +103,16 @@ for (const [name, base] of [['PHP', PHP], ['Flask', FLASK]]) {
     } finally { await s.close(); }
   });
 
+  test(`Zusammenarbeit (${name}): Bewertungskriterien – A legt an, B verknüpft eine Karte`, async ({ browser }) => {
+    const s = await twoInSession(browser, base, { process: true });
+    try {
+      const id = await s.a.evaluate(() => addCriterion('Prototyp funktioniert'));
+      await expect.poll(() => s.b.evaluate(id => doc.criteria[id] && doc.criteria[id].title, id), { timeout: 8000 }).toBe('Prototyp funktioniert');
+      await s.b.evaluate(id => mutate('Kriterium', () => { doc.nodes.t3.criteriaIds = [id]; }), id);
+      await expect.poll(() => s.a.evaluate(() => criteriaCoverage()[0].state), { timeout: 8000 }).toBe('belegt');
+    } finally { await s.close(); }
+  });
+
   test(`Zusammenarbeit (${name}): Nur-Ansehen-Link kann nichts ändern`, async ({ browser }) => {
     const s = await twoInSession(browser, base);
     try {

@@ -17,7 +17,8 @@ Hochzuladen ist der **komplette Inhalt von `web/static/`**:
 index.html
 mindmap.css
 favicon.svg, favicon-32.png, apple-touch-icon.png
-js/          (alle Dateien – seit 1.1.0 auch mm-markdown.js, mm-kanban-model.js, mm-kanban.js)
+js/          (alle Dateien – seit 1.1.0 auch mm-markdown.js, mm-kanban-model.js, mm-kanban.js,
+              mm-metrics.js, mm-kanban-insights.js, mm-report.js, mm-groups.js)
 vendor/      (qrcode.js)
 api/collab.php
 api/data/.htaccess      <- versteckte Datei!

@@ -382,6 +382,7 @@
           <li><b>Kanban:</b> Karten zwischen „Ideen“, „Offen“, „In Arbeit“ und „Erledigt“ ziehen.</li>
           <li><b>Kanban-Modus „Prozess“:</b> eigene Spalten (z. B. Backlog, Geplant, In Arbeit, Review, Erledigt) mit WIP-Limit, Tags, Blocker und Protokoll. Karte antippen öffnet sie; <b>⋯</b> an der Karte = „Verschieben nach …“. Tastatur: Pfeiltasten wandern, <kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd> verschiebt, <kbd>Enter</kbd> öffnet, <kbd>M</kbd> Menü.</li>
           <li>Im Prozess-Modus außerdem: <b>Definition of Done</b> je Spalte (beim Verschieben abhaken), <b>Kennzahlen</b> (Durchlaufzeit, Bearbeitungszeit, Cumulative Flow, Durchsatz, Blockaden), <b>Retrospektive</b> mit Leitfragen und <b>Board-Vorlagen</b> (z. B. „NwT-Projekt 8 Wochen“ unter „Neu“).</li>
+          <li>Für Lehrkräfte: <b>Kriterien</b> (welche Bewertungskriterien sind durch erledigte Karten belegt?), <b>Bericht</b> als Markdown oder Drucken/PDF (A4) und unter Import/Export die <b>Gruppenübersicht</b> zum Vergleich mehrerer Gruppendateien – nur im Browser, nichts wird hochgeladen.</li>
           <li><b>Zeitplan:</b> Aufgaben nach Fälligkeit; im Projektmodus Balken ziehen bzw. an den Rändern verlängern. „Automatisch planen“ vergibt fehlende Termine und hält Abhängigkeiten ein.</li>
           <li>Übergeordnete Punkte zeigen den Fortschritt ihrer Aufgaben an (z. B. 3/5).</li>
         </ul>
@@ -422,6 +423,9 @@
 <!-- ═══════ KANBAN (Prozess-Modus) ═══════ -->
 <div id="card-modal" class="modal"><div id="card-box" class="modal-box wide" role="dialog" aria-modal="true" aria-labelledby="card-title"></div></div>
 <div id="kanban-modal" class="modal"><div id="kanban-box" class="modal-box wide" role="dialog" aria-modal="true"></div></div>
+<div id="groups-modal" class="modal"><div class="modal-box xwide" role="dialog" aria-modal="true" aria-labelledby="groups-title">
+  <div class="modal-head"><h2 id="groups-title">Gruppenübersicht</h2><button id="groups-close" class="x" title="Schließen" aria-label="Schließen">✕</button></div>
+  <div id="groups-body"></div></div></div>
 
 <div id="print-area"></div>
 
@@ -436,6 +440,8 @@
 <script src="js/mm-metrics.js?v=2"></script>
 <script src="js/mm-kanban.js?v=2"></script>
 <script src="js/mm-kanban-insights.js?v=2"></script>
+<script src="js/mm-report.js?v=2"></script>
+<script src="js/mm-groups.js?v=2"></script>
 <script src="js/mm-check.js?v=2"></script>
 <script src="js/mm-io.js?v=2"></script>
 <script src="js/mm-collab.js?v=2"></script>

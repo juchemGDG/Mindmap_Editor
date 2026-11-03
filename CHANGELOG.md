@@ -1,6 +1,6 @@
 # Änderungen
 
-## 1.1.0 – Kanban-Prozess (in Arbeit)
+## 1.1.0 – Kanban-Prozess
 
 ### Etappe 1: Kern-Erweiterungen der Kanban-Ansicht
 
@@ -70,6 +70,23 @@ Neu ist der Schalter **Kanban-Modus: einfach / Prozess**. Im Modus *einfach*
   Kennzahlen auch nach dem Umbenennen oder Löschen von Spalten stimmen. Ältere Einträge
   werden über Spalte bzw. Beschriftung zugeordnet.
 - Desktop-Version: Der Download-Dialog zeigt nur Dateien, die es wirklich gibt.
+
+### Etappe 3: Bewertung und Überblick für die Lehrkraft
+
+- **Bewertungskriterien** (Kanban › Kriterien): Liste je Datei (neue Sammlung `criteria`),
+  Karten im Karteneditor mit Kriterien verknüpfen (wird protokolliert), Übersicht
+  „belegt / in Arbeit / offen“ mit den Karten und Zuständigen.
+- **Gruppenübersicht** (Import/Export › Gruppenübersicht): mehrere Gruppendateien laden
+  (auswählen oder hineinziehen) und vergleichen – Fortschritt, WIP jetzt und
+  Überschreitungen, Blockaden, Durchlaufzeit, letzte Aktivität, Beitragsanteile je
+  Mitglied aus dem Protokoll. Rein lesend, nur im Browser, nichts wird hochgeladen
+  oder gespeichert. Export als Markdown. Desktop-Version: Öffnen mehrerer Dateien.
+- **Bericht** (Kanban › Bericht … bzw. Import/Export): Stand der Karten, Kennzahlen mit
+  Diagrammen, Bewertungskriterien, Retrospektiven und Protokoll (Auszug der letzten 50,
+  vollständig oder ohne; mit oder ohne Personen) – als Markdown oder als
+  **A4-Druckansicht / PDF** über den Druckdialog („Als PDF sichern“). Die
+  Desktop-Version speichert eine eigenständige, druckfertige HTML-Datei.
+- Bestehende Exporte (Aufgabenliste, CSV, ICS, JSON, OPML, Bilder) unverändert.
 
 ### Behobene Fehler
 - „Wiederholen“-Knopf blieb nach „Rückgängig“ gesperrt (per Tastatur ging es).

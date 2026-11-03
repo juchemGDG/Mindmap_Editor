@@ -150,6 +150,17 @@ class Api:
         self._last_dir = os.path.dirname(path)
         return {"name": os.path.basename(path), "data": data}
 
+    def open_files(self, accept: str = ""):
+        """Öffnen-Dialog für mehrere Dateien (Gruppenübersicht); liefert [{name, data}] oder []."""
+        result = self._window.create_file_dialog(
+            webview.FileDialog.OPEN, directory=self._last_dir, allow_multiple=True, file_types=OPEN_TYPES)
+        out = []
+        for path in result or []:
+            with open(path, "r", encoding="utf-8-sig", errors="replace") as f:
+                out.append({"name": os.path.basename(path), "data": f.read()})
+            self._last_dir = os.path.dirname(path)
+        return out
+
 
 def on_closing(window, api: Api) -> bool:
     """Vor dem Schließen nachfragen, wenn ungespeicherte Änderungen da sind.

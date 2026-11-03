@@ -59,7 +59,7 @@ function closePrompt(value) {
 }
 
 // Reihenfolge = was zuoberst liegt (die Eingabe kann über dem Karteneditor erscheinen)
-const MODALS = ['prompt-modal', 'modal', 'help-modal', 'download-modal', 'template-modal', 'plan-modal', 'share-modal', 'qr-big', 'kanban-modal', 'card-modal'];
+const MODALS = ['prompt-modal', 'modal', 'help-modal', 'download-modal', 'template-modal', 'plan-modal', 'share-modal', 'qr-big', 'kanban-modal', 'card-modal', 'groups-modal'];
 function topModal() { return MODALS.map(id => $(id)).find(el => el && el.style.display === 'flex'); }
 function closeModal(el) {
   if (!el) return;
@@ -131,6 +131,9 @@ function showExportMenu(btn) {
     { label: 'Aufgabenliste (Markdown)', act: () => exportAs('tasks-md'), safe: true },
     { label: 'Aufgaben als Tabelle (CSV)', act: () => exportAs('csv'), safe: true },
     { label: 'Termine für den Kalender (ICS)', act: () => exportAs('ics'), safe: true },
+    { head: 'Kanban-Prozess' },
+    { label: 'Bericht (Markdown, Drucken / PDF) …', act: () => { if (currentView !== 'kanban') switchView('kanban'); openKDialog({ kind: 'report' }); }, safe: true, disabled: !kanbanProcess() },
+    { label: 'Gruppenübersicht (mehrere Dateien) …', act: () => openGroups(), safe: true },
   ]);
 }
 
@@ -271,6 +274,7 @@ function init() {
   bindKanbanProcess();
   bindCardDialog();
   bindKDialog();
+  bindGroups();
   bindTimeline();
   bindCheckPanel();
   bindPlanWizard();
@@ -370,6 +374,7 @@ function init() {
   on('share-start', 'click', startCollab);
   on('share-leave', 'click', () => leaveRoom(true));
   on('share-end', 'click', endRoom);
+  on('groups-close', 'click', () => closeModal($('groups-modal')));
   on('share-copy-edit', 'click', () => copyField('share-edit-url'));
   on('share-copy-view', 'click', () => copyField('share-view-url'));
   on('share-big-edit', 'click', () => showQrBig($('share-edit-url').value));
@@ -380,7 +385,7 @@ function init() {
   for (const id of MODALS) {
     const el = $(id);
     // Kanban-Dialoge regeln das selbst (mm-kanban.js)
-    if (el && id !== 'qr-big' && id !== 'card-modal' && id !== 'kanban-modal') el.addEventListener('click', e => { if (e.target === el) closeModal(el); });
+    if (el && id !== 'qr-big' && id !== 'card-modal' && id !== 'kanban-modal' && id !== 'groups-modal') el.addEventListener('click', e => { if (e.target === el) closeModal(el); });
   }
 
   // ── global ──

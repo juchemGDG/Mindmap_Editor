@@ -78,7 +78,9 @@ web/static/               die eigentliche App (läuft auch rein statisch)
   js/mm-kanban-model.js   Kanban-Prozess: Spalten, Abgleich Spalte ↔ Status, Protokoll, Datenschutz
   js/mm-kanban.js         Kanban-Prozess: Board, Karteneditor, Dialoge
   js/mm-metrics.js        Kennzahlen aus dem Protokoll (reine Rechnung)
-  js/mm-kanban-insights.js Kennzahlen-Ansicht (SVG-Diagramme) und Retrospektive
+  js/mm-kanban-insights.js Kennzahlen-Ansicht (SVG-Diagramme), Retrospektive, Kriterien
+  js/mm-report.js         Bericht (Markdown, A4-Druck/PDF)
+  js/mm-groups.js         Gruppenübersicht (mehrere Dateien, nur lokal)
   js/mm-check.js          Prüfregeln, „Zum Plan machen“
   js/mm-io.js             Speichern/Laden, Import/Export, Vorlagen, Einbettung, Downloads
   js/mm-collab.js         gemeinsames Bearbeiten (Client)
@@ -120,7 +122,8 @@ Dateiformat (`Speichern`), `version` = Schema-Version (1 = 1.0.0, 2 = ab 1.1.0):
                          "icon": "★", "color": "c3", "shape": "box", "fs": 2, "boundary": "",
                          "collapsed": false, "side": "L", "dx": 0, "dy": 0, "img": "data:…",
                          "columnId": "k…", "tags": ["Holz"], "estimate": "S|M|L",
-                         "blocked": { "flag": true, "reason": "…", "since": 1767000000000 } } },
+                         "blocked": { "flag": true, "reason": "…", "since": 1767000000000 },
+                         "criteriaIds": ["c…"] } },
     "links": { "l…": { "id": "l…", "from": "n…", "to": "n…", "label": "führt zu" } },
     "votes": { "n…|c…": { "node": "n…", "voter": "c…", "n": 2 } },
     "columns": { "k…": { "id": "k…", "order": 1, "title": "Review", "statusKey": "idea|todo|doing|done",
@@ -129,6 +132,7 @@ Dateiformat (`Speichern`), `version` = Schema-Version (1 = 1.0.0, 2 = ab 1.1.0):
     "events":  { "e…": { "id": "e…", "t": 1767000000000, "who": "AB", "type": "task.moved",
                          "task": "n…", "title": "…", "from": "In Arbeit", "to": "Review",
                          "fromCol": "k…", "toCol": "k…", "fromCat": "doing", "toCat": "doing" } },
+    "criteria": { "c…": { "id": "c…", "order": 1, "title": "Funktionierender Prototyp", "desc": "…" } },
     "retros":  { "r…": { "id": "r…", "created": 1767000000000, "title": "Retrospektive vom …",
                          "snapshot": { "leadMedian": 5.5, … }, "q1": "…", "q2": "…", "q3": "…", "q4": "…" } } } }
 ```
@@ -249,6 +253,26 @@ nachvollziehbarer Ablauf als Grundlage für Reflexion.
   vier Meilensteinen ab der aktuellen Woche) und *Projekt mit Review*. Im Kanban ersetzt
   **Vorlage …** nur die Spalten eines vorhandenen Boards; dort lässt sich das aktuelle
   Board auch als **eigene Vorlage** speichern (im Browser dieses Geräts).
+
+### Bewertung, Bericht und Gruppenübersicht (für Lehrkräfte)
+
+- **Kriterien** (Umschalter *Kriterien*): Bewertungskriterien der Datei anlegen,
+  umbenennen, beschreiben, sortieren. Im Karteneditor wählt man, welche Kriterien eine
+  Karte belegt. Die Übersicht zeigt je Kriterium *belegt* (mindestens eine verknüpfte
+  Karte erledigt), *in Arbeit* oder *offen* – mit den Karten und Zuständigen. Ein
+  Hinweis für das Gespräch, keine automatische Bewertung.
+- **Bericht …**: Stand der Karten, Kennzahlen mit Diagrammen, Kriterien,
+  Retrospektiven und ein Protokoll-Auszug (letzte 50, vollständig oder ohne; mit oder
+  ohne Personen). *Als Markdown* oder *Drucken / PDF* (A4; im Druckdialog „Als PDF
+  sichern“). Die Desktop-Version speichert dafür eine druckfertige HTML-Datei.
+  Ein eigener PDF-Erzeuger wurde bewusst nicht eingebaut: Der Druck des Browsers liefert
+  ein besseres PDF, ohne zusätzliche Bibliothek.
+- **Gruppenübersicht** (Import/Export › Gruppenübersicht): die Dateien aller Gruppen
+  auswählen oder hineinziehen. Vergleich von Fortschritt, WIP, Blockaden,
+  Durchlaufzeit, letzter Aktivität und **Beitragsanteilen** (Anteil der
+  Protokolleinträge zur Arbeit an Karten und erledigte Karten als Zuständige). Rein
+  lesend, nur im Browser – nichts wird hochgeladen oder gespeichert. Beitragsanteile
+  zeigen Aktivität, nicht Qualität.
 
 ### Spalte und Status
 

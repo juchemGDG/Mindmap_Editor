@@ -63,6 +63,37 @@ test('iPad: Prozess-Board (5 Spalten, 10 Karten) komplett per Touch', async ({ p
   expect(page.errors).toEqual([]);
 });
 
+// Etappe 3 per Touch: Kriterien anlegen und verknüpfen, Bericht, Gruppenübersicht
+test('iPad: Kriterien, Bericht und Gruppenübersicht per Touch', async ({ page }) => {
+  await openApp(page, null, { doc: tenCardDoc() });
+  await page.evaluate(() => { localStorage.setItem('mm-name', 'AB'); setKanbanMode('process'); markNoticeSeen(); });
+  await showView(page, 'kanban');
+  const tap = async sel => { const l = page.locator(sel).first(); await l.scrollIntoViewIfNeeded(); await touchTap(page, await center(l)); };
+  await tap('[data-kpane="criteria"]');
+  await page.fill('[data-crit-new]', 'Dokumentation');
+  await tap('[data-critact="add"]');
+  await tap('[data-kpane="board"]');
+  await tap('[data-pcard="t3"] .ktext');
+  await tap('#card-box [data-ccrit]');
+  await tap('#card-box .btn-primary[data-cd="close"]');
+  expect(await page.evaluate(() => criteriaCoverage()[0].state)).toBe('belegt');
+  // Bericht-Dialog
+  await tap('[data-ka="report"]');
+  await expect(page.locator('#kanban-box')).toContainText('Bericht');
+  await tap('#kanban-box [data-kd="close"]');
+  // Gruppenübersicht über das Menü
+  await tap('#btn-export');
+  await tap('.ctx-menu .ctx-item:has-text("Gruppenübersicht")');
+  await expect(page.locator('#groups-modal')).toBeVisible();
+  const chooser = page.waitForEvent('filechooser');
+  await tap('[data-gact="pick"]');
+  (await chooser).setFiles([{ name: 'g1.json', mimeType: 'application/json', buffer: Buffer.from(await page.evaluate(() => JSON.stringify(docPayload()))) }]);
+  await expect(page.locator('.gr-table tbody tr')).toHaveCount(1);
+  await tap('[data-gact="close"]');
+  await expect(page.locator('#groups-modal')).toBeHidden();
+  expect(page.errors).toEqual([]);
+});
+
 // Etappe 2 per Touch: Definition of Done, Kennzahlen, Retrospektive
 test('iPad: DoD-Dialog, Kennzahlen und Retrospektive per Touch', async ({ page }) => {
   await openApp(page, null, { doc: tenCardDoc() });

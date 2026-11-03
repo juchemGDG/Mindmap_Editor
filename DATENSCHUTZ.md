@@ -31,6 +31,7 @@ deshalb nicht als alleinige Grundlage für eine Note dienen.
 | Inhalte der Mindmap | Ideen, Notizen, Bilder, Links | nur wenn jemand Persönliches hineinschreibt |
 | Zuständige / Mitglieder | `AB`, `Lena` | ja – darum **nur Kürzel oder Spitzname**, kein Klarname nötig, kein E-Mail-Feld |
 | Aufgaben | Status, Termine, Priorität, Aufwand, Tags | über die Zuständigen |
+| Bewertungskriterien | Kriterien der Lehrkraft und welche Karten sie belegen | über die Zuständigen der Karten, mit Bewertungsbezug |
 | Retrospektiven (nur Modus „Prozess“) | Antworten der Gruppe auf die Leitfragen | nur wenn jemand Namen hineinschreibt – Hinweis in der App: keine Bewertungen einzelner Personen |
 | Protokoll (nur Modus „Prozess“) | „14:05 AB: Karte ‚Platine löten‘ verschoben: In Arbeit → Review“ | ja, mit **Bewertungsbezug** – abschaltbar („personenbezogen führen: aus“) |
 | Punkte (Dot-Voting) | wer wie viele Punkte vergeben hat | ja (zufällige Geräte-ID und ggf. Kürzel) |
@@ -109,7 +110,10 @@ Schülerinnen und Schüler (in der Regel minderjährig) und Lehrkräfte.
 9. Löschen und Anonymisieren („Projekt abschließen“), „Alle lokalen Daten löschen“.
 10. Auskunft: „Alles zu Person X exportieren“ (Aufgaben und Protokolleinträge als JSON);
     der normale JSON-Export enthält alle Daten.
-11. Die geplante Gruppenübersicht (Etappe 3) arbeitet nur lokal im Browser.
+11. Die Gruppenübersicht arbeitet nur lokal im Browser: Die Dateien werden weder
+    hochgeladen noch gespeichert. Beitragsanteile zählen Protokolleinträge und zeigen
+    Aktivität, nicht Qualität.
+12. Bericht: Das Protokoll lässt sich ganz weglassen oder ohne Personen aufnehmen.
 
 **Aufgabe der Schule bzw. des Betriebs**
 - Webserver mit HTTPS, Zugriffsprotokolle gekürzt bzw. kurz aufbewahrt (`web/DEPLOY.md`).

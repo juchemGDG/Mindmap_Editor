@@ -438,6 +438,61 @@ function applyBoardTemplate(key, withMilestones) {
 }
 
 // ════════════════════════════════════════════════════════════════════
+// Bewertungskriterien (doc.criteria) – je Datei eine Liste, Karten verweisen
+// über node.criteriaIds darauf. „Belegt“ ist ein Kriterium, sobald mindestens
+// eine damit verknüpfte Karte erledigt ist.
+// ════════════════════════════════════════════════════════════════════
+function criteriaList(src) {
+  return Object.values((src || doc).criteria || {}).sort((a, b) => ((a.order || 0) - (b.order || 0)) || (a.id < b.id ? -1 : 1));
+}
+function criteriaOf(n) { return Array.isArray(n && n.criteriaIds) ? n.criteriaIds.filter(c => doc.criteria[c]) : []; }
+function addCriterion(title) {
+  const last = criteriaList().slice(-1)[0];
+  let id = null;
+  mutate('Kriterium anlegen', () => {
+    id = uid('c');
+    doc.criteria[id] = { id, order: (last ? last.order || 0 : 0) + 1, title: String(title || 'Neues Kriterium').slice(0, 120) };
+  });
+  return id;
+}
+function updateCriterion(id, fields, mergeKey) {
+  if (!doc.criteria[id]) return;
+  mutate('Kriterium ändern', () => {
+    const c = doc.criteria[id];
+    for (const f in fields) { const v = fields[f]; if (v == null || v === '') delete c[f]; else c[f] = String(v).slice(0, f === 'desc' ? 400 : 120); }
+  }, mergeKey ? { merge: 'crit:' + id + ':' + mergeKey } : undefined);
+}
+function moveCriterion(id, delta) {
+  const list = criteriaList();
+  const i = list.findIndex(c => c.id === id), j = i + delta;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  mutate('Kriterium verschieben', () => { const a = doc.criteria[list[i].id], b = doc.criteria[list[j].id]; [a.order, b.order] = [b.order || 0, a.order || 0]; if (a.order === b.order) a.order += delta; });
+}
+function deleteCriterion(id) {
+  mutate('Kriterium löschen', () => {
+    delete doc.criteria[id];
+    for (const nid in doc.nodes) {
+      const n = doc.nodes[nid];
+      if (Array.isArray(n.criteriaIds) && n.criteriaIds.includes(id)) { n.criteriaIds = n.criteriaIds.filter(c => c !== id); if (!n.criteriaIds.length) delete n.criteriaIds; }
+    }
+  });
+}
+/**
+ * Welche Kriterien sind durch erledigte Karten belegt? Je Kriterium:
+ * {crit, state:'belegt'|'in Arbeit'|'offen', cards:[{id,title,cat,owners}], done, persons}
+ */
+function criteriaCoverage(src) {
+  src = src || doc;
+  return criteriaList(src).map(crit => {
+    const cards = Object.values(src.nodes).filter(n => n.task && Array.isArray(n.criteriaIds) && n.criteriaIds.includes(crit.id))
+      .map(n => ({ id: n.id, title: String(n.text || '').slice(0, 80), cat: cardCategory(n), owners: ownersOf(n) }));
+    const done = cards.filter(c => c.cat === 'done');
+    return { crit, cards, done: done.length, state: done.length ? 'belegt' : cards.length ? 'in Arbeit' : 'offen',
+      persons: [...new Set(done.flatMap(c => c.owners))].sort((a, b) => a.localeCompare(b, 'de')) };
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════
 // Retrospektiven (doc.retros) – Antworten der Gruppe, je Frage ein eigenes
 // Feld, damit zwei Personen gleichzeitig an verschiedenen Fragen schreiben können
 // ════════════════════════════════════════════════════════════════════
@@ -473,6 +528,7 @@ function retroMarkdown(r) {
 const AUDIT_FIELDS = {
   text: 'Titel', note: 'Inhalt', owner: 'Zuständig', due: 'Fällig', start: 'Start', prio: 'Priorität',
   deps: 'Abhängigkeiten', ms: 'Meilenstein', tags: 'Tags', estimate: 'Aufwand', color: 'Farbe', parent: 'Ast',
+  criteriaIds: 'Kriterien',
 };
 const TEXT_FIELDS = new Set(['text', 'note']);     // Inhalt wird NICHT ins Protokoll kopiert
 const TEXT_COALESCE_MS = 120000;                    // Tippen: höchstens ein Eintrag je 2 Minuten
@@ -526,6 +582,7 @@ function fmtValue(f, v, src) {
   if (f === 'ms') return v ? 'ja' : '';
   if (f === 'deps') return v.map(d => (src.nodes[d] ? (src.nodes[d].text || '').slice(0, 40) : '?')).join(', ');
   if (f === 'parent') return src.nodes[v] ? (src.nodes[v].text || '').slice(0, 40) : '';
+  if (f === 'criteriaIds') return v.map(c => (src.criteria && src.criteria[c] ? src.criteria[c].title : '?')).join(', ');
   if (f === 'statusKey') return statusLabel(v);
   if (f === 'dod') return v.length + ' Punkte';
   if (Array.isArray(v)) return v.join(', ');
@@ -674,7 +731,9 @@ function auditList(filter) {
 function eventText(e) {
   let s = EVENT_TYPES[e.type] || e.type;
   if (e.field) s += ` (${e.field})`;
-  if (e.from || e.to) s += `: ${e.from || '–'} → ${e.to || '–'}`;
+  // fehlen die Spaltennamen, wenigstens die Status-Kategorie nennen
+  const from = e.from || (e.fromCat ? statusLabel(e.fromCat) : ''), to = e.to || (e.toCat ? statusLabel(e.toCat) : '');
+  if (from || to) s += `: ${from || '–'} → ${to || '–'}`;
   if (e.via === 'undo') s += ' (Rückgängig/Wiederholen)';
   return s;
 }

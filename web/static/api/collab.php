@@ -35,7 +35,7 @@ if (is_file(__DIR__ . '/config.php')) require __DIR__ . '/config.php';
 const KEEP_OPS      = 3000;               // Operationen, die für Nachzügler bleiben
 const PEER_TTL      = 15;                 // Sekunden bis jemand als "weg" gilt
 const MAX_BODY      = 6 * 1024 * 1024;
-const COLLECTIONS   = ['meta', 'nodes', 'links', 'votes', 'columns', 'members', 'events', 'retros'];
+const COLLECTIONS   = ['meta', 'nodes', 'links', 'votes', 'columns', 'members', 'events', 'retros', 'criteria'];
 const ALPHABET      = 'abcdefghjkmnpqrstuvwxyz23456789';
 const ROOM_LEN      = 22;                 // ≈ 109 Bit Zufall: nicht zu erraten
 const CLEANUP_EVERY = 600;                // Sekunden zwischen zwei Aufräum-Läufen

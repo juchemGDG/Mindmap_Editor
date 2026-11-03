@@ -49,12 +49,12 @@ function renderKanbanProcess() {
   // Fokus merken, damit Tastaturbedienung nach dem Neuzeichnen weitergeht
   const act = document.activeElement;
   // Wer gerade eine Retrospektive schreibt, wird nicht unterbrochen (neu gezeichnet wird beim Verlassen des Feldes)
-  if (kpPane === 'retro' && act && host.contains(act) && act.matches('[data-rq], [data-rtitle]')) return;
+  if ((kpPane === 'retro' || kpPane === 'criteria') && act && host.contains(act) && act.matches('[data-rq], [data-rtitle], [data-crit-title], [data-crit-desc], [data-crit-new]')) return;
   const keep = act && host.contains(act) ? (act.dataset.pcard ? { card: act.dataset.pcard } : act.dataset.cgrip ? { grip: act.dataset.cgrip } : null) : null;
 
   if (kpPane !== 'board') {
     host.innerHTML = `<div class="view-head"><h2>Kanban</h2><div class="view-tools">${kanbanModeSwitch()}${paneSwitch()}
-        <button type="button" class="btn-small" data-ka="log">Protokoll</button></div></div><div class="kp-pane"></div>`;
+        <button type="button" class="btn-small" data-ka="log">Protokoll</button><button type="button" class="btn-small" data-ka="report">Bericht …</button></div></div><div class="kp-pane"></div>`;
     renderInsightPane(host.querySelector('.kp-pane'));
     maybeShowNotice();
     return;
@@ -77,6 +77,7 @@ function renderKanbanProcess() {
       ${ro ? '' : `<label class="kp-me${!me && personal() ? ' missing' : ''}">Ich bin <select data-kp="me" aria-label="Wer arbeitet gerade an diesem Gerät?"><option value="">– wählen –</option>${[...new Set([...members, me].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de')).map(o => `<option${o === me ? ' selected' : ''}>${esc(o)}</option>`).join('')}<option value="__new">+ neu …</option></select></label>`}
       <button type="button" class="btn-small" data-ka="compact" aria-pressed="${kpCompact}" title="Karten kompakt oder mit allen Angaben zeigen">${kpCompact ? 'Volle Karten' : 'Kompakt'}</button>
       <button type="button" class="btn-small" data-ka="log">Protokoll</button>
+      <button type="button" class="btn-small" data-ka="report">Bericht …</button>
       <button type="button" class="btn-small" data-ka="members">Mitglieder</button>
       <button type="button" class="btn-small" data-ka="privacy">Datenschutz</button>
       ${ro ? '' : '<button type="button" class="btn-small" data-ka="templates">Vorlage …</button><button type="button" class="btn-small" data-ka="add-col">+ Spalte</button>'}
@@ -338,6 +339,7 @@ function kanbanAction(act, el) {
     case 'members': openKDialog({ kind: 'members' }); break;
     case 'privacy': openKDialog({ kind: 'privacy' }); break;
     case 'templates': openKDialog({ kind: 'templates' }); break;
+    case 'report': openKDialog({ kind: 'report' }); break;
   }
 }
 
@@ -443,6 +445,7 @@ function renderCard() {
       ${readOnly ? '' : '<button type="button" class="btn-small" data-cd="add-member">+ Person</button>'}</div>`)}
     ${field('Tags', `<div class="kp-chips">${tags.map(t => `<span class="kp-tag">#${esc(t)}${readOnly ? '' : `<button type="button" data-ctag-del="${esc(t)}" aria-label="Tag ${esc(t)} entfernen">×</button>`}</span>`).join('')}
       ${readOnly ? '' : `<input class="kp-taginput" data-cf="tag-new" list="kp-taglist" placeholder="Tag + Enter" aria-label="Neuer Tag"><datalist id="kp-taglist">${knownTags().filter(t => !tags.includes(t)).map(t => `<option value="${esc(t)}">`).join('')}</datalist>`}</div>`)}
+    ${criteriaList().length ? field('Bewertungskriterien – diese Karte belegt …', `<div class="kp-chips" role="group" aria-label="Bewertungskriterien">${criteriaList().map(c => { const on = criteriaOf(n).includes(c.id); return `<button type="button" class="kp-person${on ? ' on' : ''}" data-ccrit="${esc(c.id)}" aria-pressed="${on}" title="${esc(c.desc || c.title)}"${ro}>${on ? '✓ ' : ''}${esc(c.title)}</button>`; }).join('')}</div>`) : ''}
     ${field('Farbe', `<div class="swatches" role="group" aria-label="Farbe"><button type="button" data-ccolor="" title="automatisch (Astfarbe)" aria-label="automatisch"${ro}>—</button>${NODE_COLORS.map((c, i) => `<button type="button" data-ccolor="${c}" class="${n.color === c ? 'on' : ''}" style="background:${colorValue(c)}" aria-label="Farbe ${i + 1}" aria-pressed="${n.color === c}"${ro}></button>`).join('')}</div>`)}
     <div class="insp-field"><label>Inhalt <span class="kp-hint">(Markdown: **fett**, *kursiv*, - Liste, [Link](https://…))</span></label>
       <div class="seg small" role="group" aria-label="Inhalt"><button type="button" data-cd="edit" class="${kpPreview ? '' : 'on'}"${ro}>Bearbeiten</button><button type="button" data-cd="preview" class="${kpPreview ? 'on' : ''}">Vorschau</button></div>
@@ -540,6 +543,11 @@ function bindCardDialog() {
       nodeSet('Zuständig', n => { const o = ownersOf(n); setOwners(n, o.includes(m) ? o.filter(x => x !== m) : [...o, m]); });
       return;
     }
+    if (b.dataset.ccrit != null) {
+      const c = b.dataset.ccrit;
+      nodeSet('Kriterium', n => { const cur = criteriaOf(n); n.criteriaIds = cur.includes(c) ? cur.filter(x => x !== c) : [...cur, c]; if (!n.criteriaIds.length) delete n.criteriaIds; });
+      return;
+    }
     if (b.dataset.ctagDel != null) { const t = b.dataset.ctagDel; nodeSet('Tag entfernen', n => { n.tags = tagsOf(n).filter(x => x !== t); if (!n.tags.length) delete n.tags; }); return; }
     if (b.dataset.ccolor != null) { const c = b.dataset.ccolor; nodeSet('Farbe', n => { if (c) n.color = c; else delete n.color; }); return; }
     const seg = b.closest('[data-cseg]');
@@ -633,6 +641,19 @@ function renderKDialog() {
       <label class="kp-radio"><input type="checkbox" data-kv="milestones" checked> Meilensteine der Vorlage als Aufgaben ergänzen (ab dieser Woche)</label>
       <p class="kp-msg" role="alert"></p>
       <div class="modal-buttons"><button type="button" class="btn-secondary" data-kd="tpl-save">Aktuelles Board als Vorlage speichern …</button><button type="button" class="btn-primary" data-kd="tpl-apply">Übernehmen</button></div>`;
+    return;
+  }
+  if (d.kind === 'report') {
+    const chk = (k, l, on) => `<label class="kp-radio"><input type="checkbox" data-rp="${k}"${on ? ' checked' : ''}> ${l}</label>`;
+    box.innerHTML = `<div class="modal-head"><h2>Bericht</h2>${x}</div>
+      <p class="modal-intro">Zusammenfassung des Projekts zum Aufheben oder Weitergeben. <b>Drucken / PDF</b> öffnet den Druckdialog – dort „Als PDF sichern“ wählen${DESKTOP ? ' (in der Desktop-Version entsteht eine druckfertige HTML-Datei)' : ''}.</p>
+      ${chk('cards', 'Stand der Karten (je Spalte)', true)}
+      ${chk('metrics', 'Kennzahlen mit Diagrammen', true)}
+      ${chk('criteria', `Bewertungskriterien${criteriaList().length ? '' : ' (noch keine angelegt)'}`, criteriaList().length > 0)}
+      ${chk('retros', `Retrospektiven (${retroList().length})`, retroList().length > 0)}
+      ${field('Protokoll', `<select data-rp="log"><option value="none">nicht aufnehmen</option><option value="last" selected>Auszug: die letzten ${REPORT_LOG_LAST} Einträge</option><option value="all">vollständig</option></select>`)}
+      ${chk('persons', 'Personen im Protokoll zeigen', personal())}
+      <div class="modal-buttons"><button type="button" class="btn-secondary" data-kd="report-md">Als Markdown</button><button type="button" class="btn-primary" data-kd="report-print">${DESKTOP ? 'Druckfertige Datei (HTML)' : 'Drucken / PDF'}</button></div>`;
     return;
   }
   if (d.kind === 'delcol') {
@@ -805,6 +826,13 @@ function bindKDialog() {
         const ms = box.querySelector('[data-kv="milestones"]');
         applyBoardTemplate(sel.value, !!(ms && ms.checked));
         closeKDialog();
+        break;
+      }
+      case 'report-md': case 'report-print': {
+        const o = {};
+        box.querySelectorAll('[data-rp]').forEach(el => { o[el.dataset.rp] = el.type === 'checkbox' ? el.checked : el.value; });
+        if (b.dataset.kd === 'report-md') deliverFile(reportMarkdown(o), baseName() + '_bericht.md', 'text/markdown');
+        else { closeKDialog(); printReport(o); }
         break;
       }
       case 'tpl-save':

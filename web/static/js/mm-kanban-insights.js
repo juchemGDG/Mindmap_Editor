@@ -20,7 +20,7 @@ const CFD_SERIES = [           // von unten nach oben gestapelt
 
 function paneSwitch() {
   const b = (k, l) => `<button type="button" data-kpane="${k}" class="${kpPane === k ? 'on' : ''}" aria-pressed="${kpPane === k}">${l}</button>`;
-  return `<div class="seg small" role="group" aria-label="Bereich">${b('board', 'Board')}${b('metrics', 'Kennzahlen')}${b('retro', 'Retrospektive')}</div>`;
+  return `<div class="seg small" role="group" aria-label="Bereich">${b('board', 'Board')}${b('metrics', 'Kennzahlen')}${b('retro', 'Retrospektive')}${b('criteria', 'Kriterien')}</div>`;
 }
 function setPane(p) {
   kpPane = p;
@@ -243,7 +243,7 @@ function bindInsights(host) {
   });
   host.addEventListener('focusout', e => {
     if (e.target.closest && (e.target.closest('[data-cfd]') || e.target.closest('.kp-hitbar'))) { hideTip(); }
-    if (e.target.matches && e.target.matches('[data-rq], [data-rtitle]')) setTimeout(() => { if (kpPane === 'retro') renderKanbanProcess(); }, 0);
+    if (e.target.matches && e.target.matches('[data-rq], [data-rtitle], [data-crit-title], [data-crit-desc]')) setTimeout(() => { if (kpPane === 'retro' || kpPane === 'criteria') renderKanbanProcess(); }, 0);
   });
   host.addEventListener('input', e => {
     const q = e.target.dataset.rq, id = kpRetroId;
@@ -275,6 +275,7 @@ function bindInsights(host) {
       kpRetroId = null;
     }
   });
+  bindCriteria(host);
   let resizeTimer = null;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
@@ -309,12 +310,67 @@ function retroHtml() {
       </div></div></div>`;
 }
 
-/** Inhalt des gewählten Bereichs (Kennzahlen oder Retrospektive) zeichnen. */
+// ── Bewertungskriterien ─────────────────────────────────────────────
+const CRIT_STATE = { belegt: '✓ belegt', 'in Arbeit': '◐ in Arbeit', offen: '○ offen' };
+function criteriaHtml() {
+  const cov = criteriaCoverage();
+  const ro = readOnly ? ' disabled' : '';
+  const belegt = cov.filter(c => c.state === 'belegt').length;
+  return `<div class="kp-crit">
+    <p class="modal-intro">Bewertungskriterien gehören zur Datei. Karten werden im Karteneditor mit Kriterien verknüpft; ein Kriterium ist <b>belegt</b>, sobald mindestens eine verknüpfte Karte erledigt ist.
+      Das ist ein Hinweis für das Gespräch, keine automatische Bewertung.</p>
+    ${cov.length ? `<div class="kp-tiles">${tile('Belegt', `${belegt} von ${cov.length}`, 'Kriterien')}${tile('In Arbeit', String(cov.filter(c => c.state === 'in Arbeit').length), 'Kriterien mit Karten, noch nichts erledigt')}${tile('Offen', String(cov.filter(c => c.state === 'offen').length), 'noch keine Karte verknüpft')}</div>` : ''}
+    <div class="kp-critlist">
+    ${cov.map((c, i) => `<section class="kp-critrow ${c.state === 'belegt' ? 'ok' : ''}" data-crit="${esc(c.crit.id)}">
+        <div class="kp-crithead">
+          <span class="kp-critstate" aria-label="Stand: ${esc(c.state)}">${CRIT_STATE[c.state]}</span>
+          <input data-crit-title value="${esc(c.crit.title)}" aria-label="Kriterium ${i + 1}"${ro}>
+          ${readOnly ? '' : `<button type="button" class="kp-icon" data-critact="up" aria-label="nach oben"${i === 0 ? ' disabled' : ''}>↑</button><button type="button" class="kp-icon" data-critact="down" aria-label="nach unten"${i === cov.length - 1 ? ' disabled' : ''}>↓</button><button type="button" class="kp-icon" data-critact="del" aria-label="Kriterium löschen">×</button>`}
+        </div>
+        <textarea data-crit-desc rows="1" placeholder="Beschreibung (optional), z. B. woran man es erkennt"${ro}>${esc(c.crit.desc || '')}</textarea>
+        <div class="kp-critcards">${c.cards.length ? c.cards.map(k => `<span class="kp-critcard ${k.cat}">${k.cat === 'done' ? '☑' : k.cat === 'doing' ? '◐' : '☐'} ${esc(k.title)}${k.owners.length ? ` <small>(${esc(k.owners.join(', '))})</small>` : ''}</span>`).join('') : '<span class="kp-hint">Noch keine Karte verknüpft.</span>'}</div>
+      </section>`).join('') || '<div class="view-empty">Noch keine Kriterien.</div>'}
+    </div>
+    ${readOnly ? '' : '<div class="insp-row kp-critadd"><input data-crit-new placeholder="Neues Kriterium, z. B. „Funktionierender Prototyp“" aria-label="Neues Kriterium"><button type="button" class="btn-small accent" data-critact="add">Hinzufügen</button></div>'}
+  </div>`;
+}
+
+function bindCriteria(host) {
+  host.addEventListener('input', e => {
+    const row = e.target.closest && e.target.closest('[data-crit]');
+    if (!row) return;
+    if (e.target.matches('[data-crit-title]')) updateCriterion(row.dataset.crit, { title: e.target.value || 'Kriterium' }, 'title');
+    if (e.target.matches('[data-crit-desc]')) updateCriterion(row.dataset.crit, { desc: e.target.value }, 'desc');
+  });
+  const add = () => {
+    const inp = host.querySelector('[data-crit-new]');
+    const v = inp && inp.value.trim();
+    if (!v) return;
+    addCriterion(v);
+    renderKanbanProcess();
+    const again = host.querySelector('[data-crit-new]');
+    if (again) again.focus();
+  };
+  host.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches && e.target.matches('[data-crit-new]')) { e.preventDefault(); add(); } });
+  host.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-critact]');
+    if (!b) return;
+    const row = b.closest('[data-crit]');
+    const a = b.dataset.critact;
+    if (a === 'add') add();
+    else if (a === 'up' || a === 'down') moveCriterion(row.dataset.crit, a === 'up' ? -1 : 1);
+    else if (a === 'del' && confirm('Kriterium löschen? Die Verknüpfungen an den Karten werden entfernt.')) deleteCriterion(row.dataset.crit);
+  });
+}
+
+/** Inhalt des gewählten Bereichs (Kennzahlen, Retrospektive oder Kriterien) zeichnen. */
 function renderInsightPane(box) {
   if (kpPane === 'metrics') {
     kpMetrics = computeMetrics(doc, nowSynced());
     box.innerHTML = metricsHtml(kpMetrics);
     drawCharts(box, kpMetrics);
+  } else if (kpPane === 'criteria') {
+    box.innerHTML = criteriaHtml();
   } else {
     box.innerHTML = retroHtml();
   }
