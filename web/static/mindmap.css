@@ -219,6 +219,15 @@ body[data-phase="collect"] .capture-box { border-color: #3d5a8c; }
 }
 .btn-help-side:hover { background: var(--side3); }
 
+/* Lizenzhinweis unten in der linken Leiste: klein, scrollt bei wenig Platz mit */
+.footer-lizenz {
+  margin: 0; padding: 10px 14px 12px; max-height: 30vh; overflow-y: auto;
+  border-top: 1px solid var(--side-border);
+  font-size: 10.5px; line-height: 1.5; color: var(--side-muted);
+}
+.footer-lizenz a { color: #93b4f5; text-decoration: underline; }
+.footer-lizenz a:hover { color: var(--side-text); }
+
 /* ─── Hauptbereich ───────────────────────────────────────────── */
 #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; background: var(--bg); }
 

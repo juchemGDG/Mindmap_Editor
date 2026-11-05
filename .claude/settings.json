@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php -v)",
+      "Bash(python3 -c \"import flask; print\\('flask', flask.__version__\\)\")",
+      "Bash(npm view *)",
+      "Bash(find / -maxdepth 6 -path \"*node_modules/playwright-core/browsers.json\")"
+    ]
+  }
+}
